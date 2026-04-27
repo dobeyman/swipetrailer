@@ -11,9 +11,10 @@
 - 🟢 Section 3 — Flux de données détaillés : **validée**
 - 🟢 Section 4 — États d'erreur, vides, edge cases : **validée**
 - 🟢 Spec écrit dans `docs/superpowers/specs/2026-04-27-trailerswipe-design.md`
-- ⏳ Self-review du spec : **en cours**
-- ⏳ User review du spec
-- ⏳ Transition vers writing-plans
+- 🟢 Self-review du spec
+- 🟢 User review du spec (validé avec ajout bouton 📅 dates de sortie)
+- 🟢 Plan d'implémentation écrit dans `docs/superpowers/plans/2026-04-27-trailerswipe.md` (23 tasks)
+- ⏳ **Prochaine étape : choisir le mode d'exécution (subagent-driven ou inline)**
 
 ## Décisions verrouillées
 
