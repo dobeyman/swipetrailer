@@ -141,7 +141,12 @@ docker compose up -d
 
 **`api/seerr.js`** — Client Seerr
 - `requestMedia({ mediaType, mediaId })` → POST `/api/seerr/api/v1/request`
-- `getMediaInfo(mediaType, id)` → GET `/api/seerr/api/v1/${mediaType}/${id}`
+- `fetchMediaDetails(mediaType, id)` → GET `/api/seerr/api/v1/${mediaType}/${id}` → renvoie un objet riche contenant à la fois :
+  - `mediaInfo.status` (pour détection "Disponible")
+  - `releaseDates` (films) : array de `{ type, releaseDate, certification, iso_3166_1 }` — types : 1=Premiere, 2=Theatrical limited, 3=Theatrical, 4=Digital, 5=Physical, 6=TV
+  - `firstAirDate` + `seasons[].airDate` + `nextEpisodeToAir` (séries)
+  - Métadonnées enrichies en `fr-FR` si demandé
+  - **Une seule requête couvre 2 besoins** : badge "Disponible" + popup dates de sortie
 - Erreurs typées : `AlreadyRequestedError`, `UnreachableError`, `UnauthorizedError`, `NotConfiguredError`
 
 **`youtube.js`** — Lifecycle des players
@@ -161,7 +166,18 @@ docker compose up -d
 **`card.js`** — Render d'une card
 - `createCard(item)` → DOM element complet
 - Slots : video container, overlay textuel, action bar
-- Events : `card:request`, `card:watchlist`, `card:expand-synopsis`
+- **Action bar** (5 boutons, fixed bottom) :
+  - ❤️ "Je veux" (CTA principal, rouge Netflix)
+  - 🔖 Watchlist (toggle, jaune si actif)
+  - 📅 Dates de sortie (ouvre popup, voir ci-dessous)
+  - 💬 Synopsis (toggle expanded/truncated)
+  - ⭐ rating affiché en chip (pas un bouton, juste display)
+- **Popup "Dates de sortie"** (sur tap 📅) :
+  - Films : tableau des `releaseDates`, filtré sur région FR puis fallback US, regroupé par type (Cinéma, Numérique, Physique). Format date : `DD/MM/YYYY`.
+  - Séries : `firstAirDate`, `lastAirDate`, et si `nextEpisodeToAir` → "Prochain épisode : DD/MM"
+  - Si aucune date dispo → message "Aucune date disponible"
+  - Bouton "✕" pour fermer
+- Events émis : `card:request`, `card:watchlist`, `card:expand-synopsis`, `card:show-dates`
 
 **`settings.js`** — Panel ⚙️
 - Slide-from-right
@@ -225,7 +241,7 @@ Aucune dépendance circulaire. Chaque module testable en isolation.
 3. `feed.init()` :
    - Skeleton shimmer fullscreen affiché immédiatement
    - Parallèle : `tmdb.loadGenres()` + `tmdb.fetchTrending(page=1, filter)`
-   - Pour chaque item du trending : `fetchTrailerKey(item)` + (si Seerr) `seerr.getMediaInfo(item)` en parallèle
+   - Pour chaque item du trending : `fetchTrailerKey(item)` + (si Seerr) `seerr.fetchMediaDetails(item)` en parallèle
    - Filtre : retire items sans trailer YouTube
    - Stop dès qu'on a 5 items valides → `store.setFeed`
    - `feed.render()` monte les 5 cards
@@ -260,15 +276,28 @@ Réponses :
 - **401/403** : toast "Erreur auth Seerr (config admin)", bouton revient
 - **5xx / timeout** : toast "Impossible de contacter Seerr", bouton revient
 
-### D) Détection "Disponible"
+### D) Enrichissement Seerr (statut + dates de sortie)
 
-Pour chaque item du feed (au moment du fetch initial, en parallèle de `fetchTrailerKey`) :
-- `seerr.getMediaInfo(mediaType, id)` (si Seerr configuré) :
+Pour chaque item du feed (parallèle de `fetchTrailerKey`) :
+- `seerr.fetchMediaDetails(mediaType, id)` (si Seerr configuré) → **un seul appel** :
+
+  **Bloc 1 : Statut Disponibilité**
   - `mediaInfo.status >= 5` (AVAILABLE) → badge "Disponible" (vert), bouton "Je veux" caché
   - `mediaInfo.status === 3 || 4` (PROCESSING / PENDING) → badge "En cours"
   - `mediaInfo.status === 2` (PARTIALLY_AVAILABLE, séries) → badge "Partiel"
-  - status absent / 404 / `undefined` → bouton "Je veux" normal
-  - Erreur réseau → fallback bouton "Je veux" (silencieux, pas de toast)
+  - status absent / 404 → bouton "Je veux" normal
+  - Erreur réseau → fallback bouton "Je veux" (silencieux)
+
+  **Bloc 2 : Dates de sortie (films)**
+  - `releaseDates` filtré FR > US > première dispo
+  - Triés par type (Cinéma 3, Numérique 4, Physique 5)
+  - Stockés sur l'item dans le store, affichés dans la popup au tap 📅
+
+  **Bloc 2bis : Dates (séries)**
+  - `firstAirDate`, `lastAirDate`, `nextEpisodeToAir.airDate` si disponible
+  - Affichés dans la popup au tap 📅
+
+L'objet item dans le store agrège : `{ tmdb, trailerKey, seerrStatus, dates }`.
 
 ### E) Settings change → propagation
 
