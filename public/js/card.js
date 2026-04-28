@@ -16,13 +16,15 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
     .filter(Boolean)
     .slice(0, 3);
 
-  const backdropUrl = item.backdropPath
-    ? `https://image.tmdb.org/t/p/w1280${item.backdropPath}`
+  const safeBackdrop = isSafeTmdbPath(item.backdropPath);
+  const backdropUrl = safeBackdrop
+    ? `https://image.tmdb.org/t/p/w1280${safeBackdrop}`
     : null;
+  const safeTrailerKey = isSafeYoutubeKey(item.trailerKey) ? item.trailerKey : '';
 
   el.innerHTML = `
     <div class="card__video-wrapper">
-      <div class="card__video" data-trailer-key="${item.trailerKey || ''}"></div>
+      <div class="card__video" data-trailer-key="${safeTrailerKey}"></div>
       ${backdropUrl ? `<div class="card__backdrop" style="background-image: url('${backdropUrl}')"></div>` : ''}
       <div class="card__gradient"></div>
     </div>
@@ -90,3 +92,14 @@ function escapeHtml(str) {
   div.textContent = String(str ?? '');
   return div.innerHTML;
 }
+
+function isSafeTmdbPath(p) {
+  if (!p || typeof p !== 'string') return null;
+  return /^\/[\w./-]+\.(jpg|jpeg|png|webp)$/i.test(p) ? p : null;
+}
+
+function isSafeYoutubeKey(k) {
+  return typeof k === 'string' && /^[A-Za-z0-9_-]{6,32}$/.test(k);
+}
+
+export { isSafeTmdbPath, isSafeYoutubeKey };

@@ -1,8 +1,16 @@
+import { isSafeTmdbPath } from './card.js';
+
 let installPromptEvent = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installPromptEvent = e;
 });
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str ?? '');
+  return div.innerHTML;
+}
 
 function isStandalone() {
   return (
@@ -123,13 +131,14 @@ export function createSettings({ container, store, i18n, onFilterChange }) {
           <h3>${i18n.t('settings.watchlist')}</h3>
           <ul class="watchlist-modal__list">
             ${list
-              .map(
-                (i) => `
+              .map((i) => {
+                const safePath = isSafeTmdbPath(i.posterPath);
+                return `
               <li>
-                ${i.posterPath ? `<img src="https://image.tmdb.org/t/p/w92${i.posterPath}" alt="" loading="lazy">` : ''}
-                <span>${i.title}</span>
-              </li>`
-              )
+                ${safePath ? `<img src="https://image.tmdb.org/t/p/w92${safePath}" alt="" loading="lazy">` : ''}
+                <span>${escapeHtml(i.title)}</span>
+              </li>`;
+              })
               .join('')}
           </ul>
           <button class="watchlist-modal__close">${i18n.t('settings.close')}</button>
