@@ -28,7 +28,18 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(APP_SHELL_CACHE).then((cache) => cache.addAll(APP_SHELL))
+    caches
+      .open(APP_SHELL_CACHE)
+      .then((cache) =>
+        Promise.all(
+          APP_SHELL.map((url) =>
+            cache.add(url).catch((err) => {
+              console.error(`SW install: failed to cache ${url}`, err);
+            })
+          )
+        )
+      )
+      .catch((err) => console.error('SW install: cache.open failed', err))
   );
   self.skipWaiting();
 });
