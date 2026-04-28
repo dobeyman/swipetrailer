@@ -1,0 +1,296 @@
+.feed {
+  width: 100%;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.feed::-webkit-scrollbar { display: none; }
+
+.card {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  background: var(--bg);
+  animation: fade-in var(--t-medium) ease-out;
+}
+
+.card__video-wrapper {
+  position: absolute;
+  inset: 0;
+}
+.card__video,
+.card__video iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.card__backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: -1;
+  filter: brightness(0.7);
+}
+.card__gradient {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-gradient);
+  pointer-events: none;
+}
+
+.card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-lg);
+  padding-bottom: calc(var(--action-bar-height) + var(--space-lg) + var(--safe-bottom));
+  pointer-events: none;
+}
+.card__overlay > * { pointer-events: auto; }
+
+.card__top-row {
+  position: absolute;
+  top: calc(var(--space-lg) + var(--safe-top));
+  left: var(--space-lg);
+  right: var(--space-lg);
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.card__media-type,
+.card__availability-badge {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.card__availability-badge--available {
+  background: rgba(70, 211, 105, 0.18);
+  color: var(--success);
+  border-color: rgba(70, 211, 105, 0.3);
+}
+.card__availability-badge--processing {
+  background: rgba(245, 166, 35, 0.18);
+  color: var(--warning);
+  border-color: rgba(245, 166, 35, 0.3);
+}
+.card__availability-badge--partial {
+  background: rgba(74, 158, 255, 0.18);
+  color: var(--info);
+  border-color: rgba(74, 158, 255, 0.3);
+}
+
+.card__title {
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+  font-weight: 900;
+  line-height: 1.1;
+  margin: 0 0 var(--space-sm) 0;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+}
+.card__rating { color: #ffd166; }
+
+.card__synopsis {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: -webkit-line-clamp var(--t-medium);
+}
+.card__synopsis[data-expanded="true"] {
+  -webkit-line-clamp: unset;
+  display: block;
+}
+
+.card__action-bar {
+  position: absolute;
+  bottom: calc(var(--space-md) + var(--safe-bottom));
+  left: var(--space-md);
+  right: var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  height: var(--action-bar-height);
+  padding: 0 var(--space-sm);
+}
+
+.card__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 56px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: transform var(--t-fast), background var(--t-fast);
+}
+.card__btn:active { transform: scale(0.94); }
+
+.card__btn-want {
+  background: var(--accent);
+  border-color: transparent;
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.card__btn-want:hover { background: var(--accent-hover); }
+.card__btn-want.is-requested {
+  background: var(--success);
+  color: #0a3d18;
+}
+.card__btn-want:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
+.card__btn-want.is-pulsing { animation: pulse 200ms ease-out; }
+
+.card__btn-watchlist.is-active {
+  background: rgba(245, 166, 35, 0.22);
+  border-color: rgba(245, 166, 35, 0.4);
+  color: var(--warning);
+}
+
+.card__btn-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.card__btn-watchlist,
+.card__btn-dates,
+.card__btn-synopsis {
+  width: 56px;
+  padding: 0;
+}
+
+.card__skeleton {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-elevated);
+  z-index: 5;
+}
+
+/* Tap-to-play overlay (iOS autoplay fallback) */
+.card__tap-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6;
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Dates popup */
+.dates-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--space-lg);
+}
+.dates-popup__panel {
+  width: min(420px, 100%);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  animation: fade-in var(--t-medium) ease-out;
+}
+.dates-popup__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-md) 0;
+}
+.dates-popup__row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.dates-popup__row:last-child { border-bottom: none; }
+.dates-popup__label { color: var(--text-secondary); font-weight: 500; }
+.dates-popup__value { font-weight: 600; }
+.dates-popup__close {
+  margin-top: var(--space-md);
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+/* Mute toggle, top right */
+.mute-btn {
+  position: fixed;
+  top: calc(var(--space-md) + var(--safe-top));
+  right: calc(var(--space-md) + var(--space-2xl));
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  font-size: 1.1rem;
+}
+
+/* Settings entry button */
+.settings-btn {
+  position: fixed;
+  top: calc(var(--space-md) + var(--safe-top));
+  right: var(--space-md);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  font-size: 1.2rem;
+}
