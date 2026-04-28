@@ -16,6 +16,10 @@ function loadYouTubeApi() {
     };
     setTimeout(() => reject(new Error('youtube_api_timeout')), 10_000);
   });
+  // Allow retry after a failed load (network glitch, adblocker, etc.)
+  apiReadyPromise.catch(() => {
+    apiReadyPromise = null;
+  });
   return apiReadyPromise;
 }
 
