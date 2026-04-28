@@ -10,6 +10,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   container.replaceChildren(feedEl);
 
   const players = new Map(); // itemId -> YT.Player instance
+  const pendingMounts = new Set(); // itemId currently being mounted
   const cardEls = new Map(); // itemId -> HTMLElement
   let currentPage = 1;
   let totalPages = 1;
@@ -86,8 +87,10 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
 
   async function attachPlayerIfReady(item, el) {
     if (!item.trailerKey) return;
+    if (players.has(item.id) || pendingMounts.has(item.id)) return;
     const target = el.querySelector('.card__video');
     if (!target) return;
+    pendingMounts.add(item.id);
     try {
       const player = await mountPlayer(target, item.trailerKey, {
         autoplay: false,
@@ -95,9 +98,16 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
           toast(i18n.t('card.unavailable'), { variant: 'warning' });
         },
       });
+      // Card may have been unmounted while we were awaiting
+      if (!cardEls.has(item.id)) {
+        unmountPlayer(player);
+        return;
+      }
       players.set(item.id, player);
     } catch (e) {
       console.error('feed: mount player failed', e);
+    } finally {
+      pendingMounts.delete(item.id);
     }
   }
 
@@ -207,8 +217,9 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   }
 
   function reset() {
-    for (const [id, p] of players) unmountPlayer(p);
+    for (const p of players.values()) unmountPlayer(p);
     players.clear();
+    pendingMounts.clear();
     cardEls.clear();
     feedEl.innerHTML = '';
     currentPage = 1;
