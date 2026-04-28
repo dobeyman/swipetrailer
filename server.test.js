@@ -110,3 +110,40 @@ test('GET /api/seerr/* returns 503 when SEERR_URL or SEERR_API_KEY is missing', 
   const res = await originalFetch(`${baseUrl}/api/seerr/api/v1/movie/123`);
   assert.strictEqual(res.status, 503);
 });
+
+test('GET /api/health reflects env var presence', async () => {
+  process.env.TMDB_API_KEY = 'present';
+  process.env.SEERR_URL = 'http://x';
+  process.env.SEERR_API_KEY = 'y';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+  const res = await originalFetch(`${baseUrl}/api/health`);
+  const json = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.deepStrictEqual(json, { tmdb: true, seerr: true, seerrType: 'overseerr' });
+});
+
+test('GET /api/health when TMDB missing', async () => {
+  process.env.TMDB_API_KEY = '';
+  process.env.SEERR_URL = '';
+  process.env.SEERR_API_KEY = '';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+  const res = await originalFetch(`${baseUrl}/api/health`);
+  const json = await res.json();
+  assert.deepStrictEqual(json, { tmdb: false, seerr: false, seerrType: 'overseerr' });
+});

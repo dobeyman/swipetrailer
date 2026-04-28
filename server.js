@@ -5,6 +5,14 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 export function createApp() {
   const app = express();
 
+  app.get('/api/health', (req, res) => {
+    res.json({
+      tmdb: Boolean(process.env.TMDB_API_KEY),
+      seerr: Boolean(process.env.SEERR_URL && process.env.SEERR_API_KEY),
+      seerrType: process.env.SEERR_TYPE || 'overseerr',
+    });
+  });
+
   app.use('/api/seerr', express.raw({ type: '*/*', limit: '256kb' }));
   app.all('/api/seerr/*', async (req, res) => {
     if (!process.env.SEERR_URL || !process.env.SEERR_API_KEY) {
