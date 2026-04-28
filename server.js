@@ -5,6 +5,16 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 export function createApp() {
   const app = express();
 
+  app.use(express.static('public', {
+    maxAge: '1h',
+    etag: true,
+    setHeaders: (res, path) => {
+      if (path.endsWith('sw.js')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
+
   app.get('/api/health', (req, res) => {
     res.json({
       tmdb: Boolean(process.env.TMDB_API_KEY),
