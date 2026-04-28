@@ -79,3 +79,22 @@
   border-radius: var(--radius-pill);
   font-weight: 600;
 }
+
+.read-only-banner,
+.offline-banner {
+  position: fixed;
+  top: var(--safe-top);
+  left: 0;
+  right: 0;
+  background: rgba(245, 166, 35, 0.85);
+  color: #1a0a00;
+  padding: 6px var(--space-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  z-index: 60;
+}
+.offline-banner {
+  background: rgba(229, 9, 20, 0.85);
+  color: white;
+}
