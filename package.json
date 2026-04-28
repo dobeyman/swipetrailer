@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --env-file=.env --watch server.js",
-    "test": "node --test --test-reporter=spec tests/ server.test.js"
+    "test": "node --test --test-reporter=spec 'tests/**/*.test.js' server.test.js"
   },
   "engines": {
     "node": ">=20.6.0"
