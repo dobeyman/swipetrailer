@@ -30,7 +30,14 @@ export function createApp() {
     }
     try {
       const seerrPath = req.url.replace(/^\/api\/seerr\//, '');
-      const url = `${process.env.SEERR_URL.replace(/\/$/, '')}/${seerrPath}`;
+      if (seerrPath.includes('..') || seerrPath.startsWith('/') || seerrPath.includes('@')) {
+        return res.status(400).json({ error: 'invalid_path' });
+      }
+      const base = new URL(process.env.SEERR_URL.replace(/\/$/, '') + '/');
+      const url = new URL(seerrPath, base);
+      if (url.origin !== base.origin) {
+        return res.status(400).json({ error: 'invalid_path' });
+      }
       const fetchOpts = {
         method: req.method,
         headers: {
@@ -43,7 +50,7 @@ export function createApp() {
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         fetchOpts.body = req.body;
       }
-      const upstream = await fetch(url, fetchOpts);
+      const upstream = await fetch(url.toString(), fetchOpts);
       const body = await upstream.text();
       res.status(upstream.status);
       const ct = upstream.headers.get('content-type');
