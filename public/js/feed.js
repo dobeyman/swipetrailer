@@ -182,9 +182,11 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     try {
       const filter = store.getState().preferences.filter;
       const nextPage = currentPage >= totalPages ? 1 : currentPage + 1;
-      const { items, totalPages: tp } = await tmdb.fetchTrending(nextPage, filter);
+      const { items, totalPages: tp } = await tmdb.fetchMixed(nextPage, filter);
       const enriched = await enrichItems(items);
-      store.dispatch({ type: 'APPEND_FEED', items: enriched });
+      const existingIds = new Set(store.getState().feed.map((i) => i.id));
+      const deduped = enriched.filter((i) => !existingIds.has(i.id));
+      if (deduped.length) store.dispatch({ type: 'APPEND_FEED', items: deduped });
       currentPage = nextPage;
       totalPages = tp;
       updateWindow(store.getState().currentIndex);
@@ -236,7 +238,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     try {
       const filter = store.getState().preferences.filter;
       const results = await Promise.all(
-        [1, 2, 3].map((p) => tmdb.fetchTrending(p, filter).catch(() => null))
+        [1, 2].map((p) => tmdb.fetchMixed(p, filter).catch(() => null))
       );
       const allItems = results.flatMap((r) => r?.items ?? []);
       const seen = new Set();
@@ -247,7 +249,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       });
       const tp = Math.max(...results.filter(Boolean).map((r) => r.totalPages));
       const enriched = await enrichItems(unique);
-      currentPage = 3;
+      currentPage = 2;
       totalPages = tp;
       store.dispatch({ type: 'SET_FEED', items: enriched });
       if (enriched.length === 0) {
