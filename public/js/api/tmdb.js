@@ -55,6 +55,13 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
     return { items, totalPages: json.total_pages || 1 };
   }
 
+  async function fetchReleaseDates(tmdbId) {
+    const url = `${TMDB_PROXY}/movie/${tmdbId}/release_dates`;
+    const res = await fetchImpl(url);
+    if (!res.ok) return null;
+    return await res.json();
+  }
+
   async function fetchTrailerKey(mediaType, tmdbId) {
     const url = `${TMDB_PROXY}/${mediaType}/${tmdbId}/videos?language=fr-FR&include_video_language=fr,en,null`;
     const res = await fetchImpl(url);
@@ -71,5 +78,5 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
     return candidates[0]?.key || null;
   }
 
-  return { loadGenres, fetchTrending, fetchTrailerKey };
+  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates };
 }

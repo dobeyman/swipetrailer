@@ -40,12 +40,6 @@ async function main() {
   const seerrEnabled = health.seerr;
 
   // Top-right buttons
-  const muteBtn = document.createElement('button');
-  muteBtn.className = 'mute-btn';
-  muteBtn.setAttribute('aria-label', 'Toggle mute');
-  muteBtn.innerHTML = '🔇';
-  document.body.appendChild(muteBtn);
-
   const settingsBtn = document.createElement('button');
   settingsBtn.className = 'settings-btn';
   settingsBtn.setAttribute('aria-label', 'Settings');
@@ -93,16 +87,9 @@ async function main() {
 
   settingsBtn.addEventListener('click', () => settings.toggle());
 
-  muteBtn.addEventListener('click', () => {
-    const next = !store.getState().isMutedGlobally;
-    store.dispatch({ type: 'SET_MUTED', value: next });
-    muteBtn.innerHTML = next ? '🔇' : '🔊';
-    feed.setMutedAll(next);
-  });
-
   // Handle card events bubbling up
   appEl.addEventListener('card:request', async (e) => {
-    const { id, mediaType, tmdbId, title } = e.detail;
+    const { id, mediaType, tmdbId, title, seasons } = e.detail;
     const card = appEl.querySelector(`.card[data-item-id="${id}"]`);
     const btn = card?.querySelector('.card__btn-want');
     if (btn) {
@@ -111,7 +98,7 @@ async function main() {
     }
     if (navigator.vibrate) navigator.vibrate(50);
     try {
-      await seerr.requestMedia({ mediaType, mediaId: tmdbId });
+      await seerr.requestMedia({ mediaType, mediaId: tmdbId, seasons });
       store.dispatch({ type: 'ADD_REQUESTED', id });
       toast(i18n.t('toast.requested', { title }), { variant: 'success' });
       if (btn) {
@@ -187,10 +174,6 @@ async function main() {
       case 'ArrowUp':
         e.preventDefault();
         feed.scrollTo(Math.max(0, store.getState().currentIndex - 1));
-        break;
-      case 'm':
-      case 'M':
-        muteBtn.click();
         break;
       case 'r':
       case 'R': {

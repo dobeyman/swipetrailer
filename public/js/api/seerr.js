@@ -16,8 +16,18 @@ export class NotConfiguredError extends Error {
 export function createSeerrClient({ fetch: fetchImpl = globalThis.fetch, enabled = false } = {}) {
   async function requestMedia({ mediaType, mediaId, seasons }) {
     if (!enabled) throw new NotConfiguredError();
+    let resolvedSeasons = seasons;
+    if (mediaType === 'tv' && !resolvedSeasons?.length) {
+      try {
+        const r = await fetchImpl(`${SEERR_PROXY}/tv/${mediaId}`);
+        if (r.ok) {
+          const d = await r.json();
+          resolvedSeasons = d?.seasons?.map((s) => s.seasonNumber).filter((n) => n > 0) ?? null;
+        }
+      } catch { /* fall through */ }
+    }
     const body = { mediaType, mediaId };
-    if (mediaType === 'tv' && seasons) body.seasons = seasons;
+    if (mediaType === 'tv' && resolvedSeasons?.length) body.seasons = resolvedSeasons;
     let res;
     try {
       res = await fetchImpl(`${SEERR_PROXY}/request`, {

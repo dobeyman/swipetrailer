@@ -6,7 +6,7 @@ export const initialState = Object.freeze({
   currentIndex: 0,
   preferences: { filter: 'all', locale: 'fr' },
   health: null, // { tmdb, seerr, seerrType }
-  isMutedGlobally: true,
+  isMutedGlobally: false,
 });
 
 export function reducer(state, action) {

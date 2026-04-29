@@ -7,8 +7,8 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
   const isRequested = requestedIds.has(item.id);
   const isInWatchlist = watchlistIds.has(item.id);
   const isAvailable = item.seerrStatus !== null && item.seerrStatus >= 5;
-  const isProcessing = item.seerrStatus === 3 || item.seerrStatus === 4;
-  const isPartial = item.seerrStatus === 2;
+  const isPartial = item.seerrStatus === 4;
+  const isProcessing = item.seerrStatus === 2 || item.seerrStatus === 3;
   const showWantButton = seerrEnabled && !isAvailable;
 
   const genreNames = (item.genreIds || [])
@@ -27,6 +27,8 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
       <div class="card__video" data-trailer-key="${safeTrailerKey}"></div>
       ${backdropUrl ? `<div class="card__backdrop" style="background-image: url('${backdropUrl}')"></div>` : ''}
       <div class="card__gradient"></div>
+      ${backdropUrl ? `<div class="card__video-cover" style="background-image: url('${backdropUrl}')"></div>` : ''}
+      <div class="card__top-gradient"></div>
     </div>
     <div class="card__overlay">
       <div class="card__top-row">
@@ -65,7 +67,7 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
   // Wire events
   el.querySelector('.card__btn-want')?.addEventListener('click', () => {
     el.dispatchEvent(new CustomEvent('card:request', {
-      detail: { id: item.id, mediaType: item.mediaType, tmdbId: item.tmdbId, title: item.title },
+      detail: { id: item.id, mediaType: item.mediaType, tmdbId: item.tmdbId, title: item.title, seasons: item.seasons },
       bubbles: true,
     }));
   });

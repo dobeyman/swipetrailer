@@ -12,7 +12,7 @@
   height: 100%;
   background: var(--bg-elevated);
   border-left: 1px solid var(--border);
-  animation: slide-in-right var(--t-medium) ease-out;
+  animation: slide-in-right 240ms ease-out;
   display: flex;
   flex-direction: column;
 }
@@ -141,7 +141,7 @@
   padding: var(--space-lg);
   border: 1px solid var(--border);
   overflow-y: auto;
-  animation: fade-in var(--t-medium);
+  animation: fade-in 240ms ease-out;
 }
 .watchlist-modal__panel h3 { margin-top: 0; }
 .watchlist-modal__list {

@@ -37,7 +37,7 @@
   align-items: center;
   gap: var(--space-sm);
   font-weight: 500;
-  animation: slide-in-bottom var(--t-medium) ease-out;
+  animation: slide-in-bottom 240ms ease-out;
   border-left: 3px solid var(--info);
 }
 
@@ -45,7 +45,7 @@
 .toast.toast--error { border-left-color: var(--danger); }
 .toast.toast--warning { border-left-color: var(--warning); }
 .toast.is-leaving {
-  animation: slide-out-bottom var(--t-medium) ease-in forwards;
+  animation: slide-out-bottom 240ms ease-in forwards;
 }
 
 .error-screen {
@@ -98,3 +98,26 @@
   background: rgba(229, 9, 20, 0.85);
   color: white;
 }
+
+.start-gate {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.start-gate__btn {
+  background: var(--accent);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: var(--space-lg) var(--space-xl);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  transition: transform var(--t-fast);
+}
+.start-gate__btn:active { transform: scale(0.94); }

@@ -3,6 +3,7 @@
   "feed.error": "Connexion perdue, réessaie",
   "feed.retry": "Réessayer",
   "feed.loading_more_failed": "Impossible de charger plus de trailers",
+  "feed.start": "Démarrer",
   "feed.read_only_banner": "Mode lecture seule (Seerr non configuré)",
   "feed.offline_banner": "Hors ligne",
 
@@ -14,7 +15,7 @@
   "card.requested": "Demandé !",
   "card.already_requested": "Déjà demandé",
   "card.available": "Disponible",
-  "card.processing": "En cours",
+  "card.processing": "Demandé",
   "card.partial": "Partiel",
   "card.watchlist_add": "Ajouter à la watchlist",
   "card.watchlist_remove": "Retirer de la watchlist",

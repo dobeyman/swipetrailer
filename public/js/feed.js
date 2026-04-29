@@ -12,39 +12,56 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   const players = new Map(); // itemId -> YT.Player instance
   const pendingMounts = new Set(); // itemId currently being mounted
   const cardEls = new Map(); // itemId -> HTMLElement
+  let hasStarted = false;
   let currentPage = 1;
   let totalPages = 1;
   let isLoadingPage = false;
 
   let observerDebounceTimer = null;
+  const pendingEntries = new Map(); // itemId -> latest IntersectionObserverEntry
   const observer = new IntersectionObserver(
     (entries) => {
+      for (const e of entries) pendingEntries.set(e.target.dataset.itemId, e);
       clearTimeout(observerDebounceTimer);
-      observerDebounceTimer = setTimeout(() => onIntersection(entries), 150);
+      observerDebounceTimer = setTimeout(() => {
+        onIntersection([...pendingEntries.values()]);
+        pendingEntries.clear();
+      }, 150);
     },
     { root: feedEl, threshold: 0.8 }
   );
 
   function onIntersection(entries) {
+    // Pick the most-visible intersecting card to avoid committing the wrong index
+    // when two cards briefly exceed the threshold simultaneously during a swipe.
+    let bestEntry = null;
     for (const entry of entries) {
-      const id = entry.target.dataset.itemId;
-      const player = players.get(id);
       if (entry.isIntersecting && entry.intersectionRatio >= 0.8) {
-        const idx = store.getState().feed.findIndex((i) => i.id === id);
-        if (idx >= 0) {
-          store.dispatch({ type: 'SET_INDEX', index: idx });
-          updateWindow(idx);
-          loadMoreIfNeeded(idx);
+        if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
+          bestEntry = entry;
         }
-        if (player) {
-          play(player);
-          setMuted(player, store.getState().isMutedGlobally);
-        }
-      } else {
-        if (player) {
-          pause(player);
-          setMuted(player, true);
-        }
+      }
+    }
+
+    // Pause everything that isn't the winner
+    for (const entry of entries) {
+      if (bestEntry?.target === entry.target) continue;
+      const player = players.get(entry.target.dataset.itemId);
+      if (player) pause(player);
+    }
+
+    if (bestEntry) {
+      const id = bestEntry.target.dataset.itemId;
+      const idx = store.getState().feed.findIndex((i) => i.id === id);
+      if (idx >= 0) {
+        store.dispatch({ type: 'SET_INDEX', index: idx });
+        updateWindow(idx);
+        loadMoreIfNeeded(idx);
+      }
+      const player = players.get(id);
+      if (player && hasStarted) {
+        play(player);
+        if (!isIOS()) setMuted(player, false);
       }
     }
   }
@@ -56,14 +73,18 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     const liveIds = new Set();
     for (let i = minIdx; i <= maxIdx; i++) liveIds.add(feed[i].id);
 
-    // Unmount cards outside window
+    // Unmount players outside window; only remove DOM nodes for tail cards
+    // (never remove head cards — that shifts scrollTop mid-animation and breaks snap)
     for (const [id, el] of cardEls) {
       if (!liveIds.has(id)) {
         const p = players.get(id);
         if (p) { unmountPlayer(p); players.delete(id); }
-        observer.unobserve(el);
-        el.remove();
-        cardEls.delete(id);
+        const itemIdx = feed.findIndex((i) => i.id === id);
+        if (itemIdx > maxIdx) {
+          observer.unobserve(el);
+          el.remove();
+          cardEls.delete(id);
+        }
       }
     }
 
@@ -72,7 +93,6 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       const item = feed[i];
       if (cardEls.has(item.id)) continue;
       const el = renderCard(item);
-      // Position-correct insertion: find the next existing card with greater index
       let nextEl = null;
       for (let j = i + 1; j <= maxIdx; j++) {
         const found = cardEls.get(feed[j]?.id);
@@ -91,19 +111,41 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     const target = el.querySelector('.card__video');
     if (!target) return;
     pendingMounts.add(item.id);
+    const cover = el.querySelector('.card__video-cover');
     try {
       const player = await mountPlayer(target, item.trailerKey, {
         autoplay: false,
-        onError: () => {
-          toast(i18n.t('card.unavailable'), { variant: 'warning' });
+        onError: () => {},
+        onStateChange: (e) => {
+          if (e.data === 1) {
+            if (cover) cover.classList.add('is-hidden');
+            // Video is now playing (muted play succeeded) — safe to unmute.
+            if (hasStarted && !isIOS()) setMuted(player, false);
+          }
         },
       });
-      // Card may have been unmounted while we were awaiting
       if (!cardEls.has(item.id)) {
         unmountPlayer(player);
         return;
       }
       players.set(item.id, player);
+
+      // Cover tap: direct user gesture — mark started so subsequent cards auto-play
+      if (cover) {
+        cover.addEventListener('click', () => {
+          hasStarted = true;
+          play(player);
+          if (!isIOS()) setMuted(player, false);
+          cover.classList.add('is-hidden');
+        }, { once: true });
+      }
+
+      // Auto-play if this is the currently visible card and user has started
+      const currentItem = store.getState().feed[store.getState().currentIndex];
+      if (currentItem?.id === item.id && hasStarted) {
+        play(player);
+        if (!isIOS()) setMuted(player, false);
+      }
     } catch (e) {
       console.error('feed: mount player failed', e);
     } finally {
@@ -126,14 +168,14 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     const feed = store.getState().feed;
     if (currentIdx < feed.length - 3) return;
     if (isLoadingPage) return;
-    if (currentPage >= totalPages) return;
     isLoadingPage = true;
     try {
       const filter = store.getState().preferences.filter;
-      const { items, totalPages: tp } = await tmdb.fetchTrending(currentPage + 1, filter);
+      const nextPage = currentPage >= totalPages ? 1 : currentPage + 1;
+      const { items, totalPages: tp } = await tmdb.fetchTrending(nextPage, filter);
       const enriched = await enrichItems(items);
       store.dispatch({ type: 'APPEND_FEED', items: enriched });
-      currentPage += 1;
+      currentPage = nextPage;
       totalPages = tp;
       updateWindow(store.getState().currentIndex);
     } catch (e) {
@@ -144,12 +186,23 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     }
   }
 
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   async function enrichItems(items) {
     const enrichOne = async (item) => {
-      const [trailerKey, details] = await Promise.all([
+      const [trailerKey, details, releaseDates] = await Promise.all([
         tmdb.fetchTrailerKey(item.mediaType, item.tmdbId).catch(() => null),
         seerrEnabled
           ? seerr.fetchMediaDetails(item.mediaType, item.tmdbId).catch(() => null)
+          : Promise.resolve(null),
+        item.mediaType === 'movie'
+          ? tmdb.fetchReleaseDates(item.tmdbId).catch(() => null)
           : Promise.resolve(null),
       ]);
       const seerrStatus = details?.mediaInfo?.status ?? null;
@@ -157,23 +210,34 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
         ...item,
         trailerKey,
         seerrStatus,
-        releaseDates: details?.releaseDates ?? null,
+        releaseDates: item.mediaType === 'movie' ? releaseDates : null,
         firstAirDate: details?.firstAirDate ?? null,
         lastAirDate: details?.lastAirDate ?? null,
         nextEpisodeToAir: details?.nextEpisodeToAir ?? null,
+        seasons: details?.seasons?.map((s) => s.seasonNumber).filter((n) => n > 0) ?? null,
       };
     };
     const enriched = await Promise.all(items.map(enrichOne));
-    return enriched.filter((i) => i.trailerKey); // drop items without trailers
+    return shuffle(enriched.filter((i) => i.trailerKey));
   }
 
   async function init() {
     isLoadingPage = true;
     try {
       const filter = store.getState().preferences.filter;
-      const { items, totalPages: tp } = await tmdb.fetchTrending(1, filter);
-      const enriched = await enrichItems(items);
-      currentPage = 1;
+      const results = await Promise.all(
+        [1, 2, 3].map((p) => tmdb.fetchTrending(p, filter).catch(() => null))
+      );
+      const allItems = results.flatMap((r) => r?.items ?? []);
+      const seen = new Set();
+      const unique = allItems.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+      const tp = Math.max(...results.filter(Boolean).map((r) => r.totalPages));
+      const enriched = await enrichItems(unique);
+      currentPage = 3;
       totalPages = tp;
       store.dispatch({ type: 'SET_FEED', items: enriched });
       if (enriched.length === 0) {
@@ -181,21 +245,47 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
         return;
       }
       updateWindow(0);
-      // Start auto-play on first card after a tick
-      setTimeout(() => {
-        const firstId = enriched[0].id;
-        const p = players.get(firstId);
-        if (p) {
-          play(p);
-          setMuted(p, store.getState().isMutedGlobally);
-        }
-      }, 200);
+      showStartGate();
     } catch (e) {
       console.error('feed: init failed', e);
       showErrorState();
     } finally {
       isLoadingPage = false;
     }
+  }
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function showStartGate() {
+    if (isIOS()) {
+      // iOS: muted autoplay works without user gesture — skip the gate
+      hasStarted = true;
+      const item = store.getState().feed[store.getState().currentIndex];
+      if (item) {
+        const p = players.get(item.id);
+        if (p) play(p);
+      }
+      return;
+    }
+
+    const gate = document.createElement('div');
+    gate.className = 'start-gate';
+    gate.innerHTML = `<button class="start-gate__btn">▶ ${i18n.t('feed.start')}</button>`;
+    gate.addEventListener('click', () => {
+      hasStarted = true;
+      gate.remove();
+      const item = store.getState().feed[store.getState().currentIndex];
+      if (!item) return;
+      const p = players.get(item.id);
+      if (p) {
+        play(p);
+        setMuted(p, false); // user gesture context → Chrome delegates allow="autoplay"
+      }
+    }, { once: true });
+    document.body.appendChild(gate);
   }
 
   function showEmptyState() {
@@ -236,13 +326,14 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   }
 
   function resumeCurrent() {
+    if (!hasStarted) return;
     const idx = store.getState().currentIndex;
     const item = store.getState().feed[idx];
     if (!item) return;
     const p = players.get(item.id);
     if (p) {
       play(p);
-      setMuted(p, store.getState().isMutedGlobally);
+      if (!isIOS()) setMuted(p, false);
     }
   }
 

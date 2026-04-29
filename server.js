@@ -28,8 +28,10 @@ export function createApp() {
     if (!process.env.SEERR_URL || !process.env.SEERR_API_KEY) {
       return res.status(503).json({ error: 'seerr_not_configured' });
     }
+    const t0 = Date.now();
+    let seerrPath = '?';
     try {
-      const seerrPath = req.url.replace(/^\/api\/seerr\//, '');
+      seerrPath = req.url.replace(/^\/api\/seerr\//, '');
       if (seerrPath.includes('..') || seerrPath.startsWith('/') || seerrPath.includes('@')) {
         return res.status(400).json({ error: 'invalid_path' });
       }
@@ -51,13 +53,18 @@ export function createApp() {
         fetchOpts.body = req.body;
       }
       const upstream = await fetch(url.toString(), fetchOpts);
+      const ms = Date.now() - t0;
       const body = await upstream.text();
+      if (!upstream.ok) {
+        console.warn(JSON.stringify({ level: 'warn', src: 'seerr', method: req.method, path: seerrPath, status: upstream.status, ms, body: body.slice(0, 200) }));
+      }
       res.status(upstream.status);
       const ct = upstream.headers.get('content-type');
       if (ct) res.set('content-type', ct);
       res.send(body);
     } catch (err) {
-      console.error(JSON.stringify({ level: 'error', src: 'seerr', msg: err.message }));
+      const ms = Date.now() - t0;
+      console.error(JSON.stringify({ level: 'error', src: 'seerr', method: req.method, path: seerrPath, msg: err.message, ms }));
       res.status(502).json({ error: 'seerr_upstream_failed' });
     }
   });

@@ -14,7 +14,8 @@ export function toast(message, { variant = 'info', duration = 3000 } = {}) {
 
   const dismiss = () => {
     el.classList.add('is-leaving');
-    el.addEventListener('animationend', () => el.remove(), { once: true });
+    const fallback = setTimeout(() => el.remove(), 350);
+    el.addEventListener('animationend', () => { clearTimeout(fallback); el.remove(); }, { once: true });
   };
 
   const timer = setTimeout(dismiss, duration);

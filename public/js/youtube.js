@@ -23,7 +23,7 @@ function loadYouTubeApi() {
   return apiReadyPromise;
 }
 
-export async function mountPlayer(containerEl, videoKey, { onReady, onError, autoplay = false } = {}) {
+export async function mountPlayer(containerEl, videoKey, { onReady, onError, onStateChange: onStateChangeCb, autoplay = false, mute = 1 } = {}) {
   const YT = await loadYouTubeApi();
   return new Promise((resolve) => {
     const player = new YT.Player(containerEl, {
@@ -39,7 +39,7 @@ export async function mountPlayer(containerEl, videoKey, { onReady, onError, aut
         rel: 0,
         fs: 0,
         iv_load_policy: 3,
-        mute: 1,
+        mute,
       },
       events: {
         onReady: () => {
@@ -48,8 +48,8 @@ export async function mountPlayer(containerEl, videoKey, { onReady, onError, aut
         },
         onError: (e) => onError?.(e),
         onStateChange: (e) => {
-          // 0=ended → loop to start
           if (e.data === 0) player.seekTo(0);
+          onStateChangeCb?.(e, player);
         },
       },
     });

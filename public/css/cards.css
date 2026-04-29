@@ -17,32 +17,70 @@
   scroll-snap-stop: always;
   overflow: hidden;
   background: var(--bg);
-  animation: fade-in var(--t-medium) ease-out;
+  animation: fade-in 240ms ease-out;
 }
 
 .card__video-wrapper {
   position: absolute;
   inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
-.card__video,
+.card__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
 .card__video iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
 }
 .card__backdrop {
   position: absolute;
-  inset: 0;
+  inset: -6%;
   background-size: cover;
   background-position: center;
-  z-index: -1;
-  filter: brightness(0.7);
+  z-index: 0;
+  filter: blur(22px) brightness(0.45);
 }
 .card__gradient {
   position: absolute;
   inset: 0;
   background: var(--overlay-gradient);
   pointer-events: none;
+  z-index: 2;
+}
+
+.card__video-cover {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: opacity 400ms ease-out;
+  z-index: 3;
+}
+.card__video-cover.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dark gradient at top to mask the YouTube video title */
+.card__top-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 4;
 }
 
 .card__overlay {
@@ -54,14 +92,15 @@
   padding: var(--space-lg);
   padding-bottom: calc(var(--action-bar-height) + var(--space-lg) + var(--safe-bottom));
   pointer-events: none;
+  z-index: 10;
 }
 .card__overlay > * { pointer-events: auto; }
 
 .card__top-row {
   position: absolute;
-  top: calc(var(--space-lg) + var(--safe-top));
+  top: calc(var(--space-lg) + var(--safe-top) + 36px);
   left: var(--space-lg);
-  right: var(--space-lg);
+  right: calc(var(--space-md) + 44px + var(--space-sm));
   display: flex;
   gap: var(--space-sm);
   flex-wrap: wrap;
@@ -235,7 +274,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   border: 1px solid var(--border);
-  animation: fade-in var(--t-medium) ease-out;
+  animation: fade-in 240ms ease-out;
 }
 .dates-popup__title {
   font-size: 1.2rem;
@@ -281,7 +320,7 @@
 /* Settings entry button */
 .settings-btn {
   position: fixed;
-  top: calc(var(--space-md) + var(--safe-top));
+  top: calc(var(--space-lg) + var(--safe-top) + 28px);
   right: var(--space-md);
   width: 44px;
   height: 44px;
