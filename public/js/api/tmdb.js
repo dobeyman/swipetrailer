@@ -55,6 +55,49 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
     return { items, totalPages: json.total_pages || 1 };
   }
 
+  async function fetchEndpoint(path, mediaType, page) {
+    const url = `${TMDB_PROXY}/${path}?page=${page}&language=fr-FR`;
+    const res = await fetchImpl(url);
+    if (!res.ok) throw new Error(`TMDB ${path} failed: ${res.status}`);
+    const json = await res.json();
+    const items = (json.results || []).map((r) => normalizeTmdbItem(r, mediaType));
+    return { items, totalPages: json.total_pages || 1 };
+  }
+
+  function sourcesForFilter(filter) {
+    const sources = [(page) => fetchTrending(page, filter)];
+    if (filter !== 'tv') {
+      sources.push((page) => fetchEndpoint('movie/top_rated', 'movie', page));
+      sources.push((page) => fetchEndpoint('movie/now_playing', 'movie', page));
+    }
+    if (filter !== 'movie') {
+      sources.push((page) => fetchEndpoint('tv/top_rated', 'tv', page));
+      sources.push((page) => fetchEndpoint('tv/on_the_air', 'tv', page));
+    }
+    return sources;
+  }
+
+  async function fetchMixed(page, filter) {
+    const sources = sourcesForFilter(filter);
+    const results = await Promise.allSettled(sources.map((fn) => fn(page)));
+    const fulfilled = results
+      .filter((r) => r.status === 'fulfilled')
+      .map((r) => r.value);
+    if (fulfilled.length === 0) throw new Error('All TMDB sources failed');
+    const seen = new Set();
+    const items = [];
+    for (const result of fulfilled) {
+      for (const item of result.items) {
+        if (!seen.has(item.id)) {
+          seen.add(item.id);
+          items.push(item);
+        }
+      }
+    }
+    const totalPages = Math.max(...fulfilled.map((r) => r.totalPages));
+    return { items, totalPages };
+  }
+
   async function fetchReleaseDates(tmdbId) {
     const url = `${TMDB_PROXY}/movie/${tmdbId}/release_dates`;
     const res = await fetchImpl(url);
@@ -90,5 +133,5 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
       .map((r) => normalizeTmdbItem(r, r.media_type));
   }
 
-  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch };
+  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch, fetchMixed };
 }

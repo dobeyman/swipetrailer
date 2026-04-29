@@ -218,3 +218,53 @@ test('fetchSearch returns at most 8 results', async () => {
   const items = await client.fetchSearch('movie');
   assert.strictEqual(items.length, 8);
 });
+
+test('fetchMixed merges results from all sources for filter=all', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/tmdb/trending/all/week',  body: { results: [{ id: 1, media_type: 'movie', title: 'A', release_date: '2021-01-01', genre_ids: [], vote_average: 7, poster_path: '/a.jpg', backdrop_path: null, overview: '' }], total_pages: 3 } },
+    { match: '/api/tmdb/movie/top_rated',    body: { results: [{ id: 2, title: 'B', release_date: '2020-01-01', genre_ids: [], vote_average: 8, poster_path: '/b.jpg', backdrop_path: null, overview: '' }], total_pages: 5 } },
+    { match: '/api/tmdb/movie/now_playing',  body: { results: [{ id: 3, title: 'C', release_date: '2024-01-01', genre_ids: [], vote_average: 7, poster_path: '/c.jpg', backdrop_path: null, overview: '' }], total_pages: 2 } },
+    { match: '/api/tmdb/tv/top_rated',       body: { results: [{ id: 4, name: 'D', first_air_date: '2020-01-01', genre_ids: [], vote_average: 8, poster_path: '/d.jpg', backdrop_path: null, overview: '' }], total_pages: 4 } },
+    { match: '/api/tmdb/tv/on_the_air',      body: { results: [{ id: 5, name: 'E', first_air_date: '2024-01-01', genre_ids: [], vote_average: 7, poster_path: '/e.jpg', backdrop_path: null, overview: '' }], total_pages: 3 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items, totalPages } = await client.fetchMixed(1, 'all');
+  assert.strictEqual(items.length, 5);
+  assert.strictEqual(totalPages, 5); // max across sources
+});
+
+test('fetchMixed deduplicates items that appear in multiple sources', async () => {
+  const shared = { id: 1, media_type: 'movie', title: 'Hit', release_date: '2024-01-01', genre_ids: [], vote_average: 8, poster_path: '/h.jpg', backdrop_path: null, overview: '' };
+  const fetchImpl = makeFetch([
+    { match: '/api/tmdb/trending/movie/week', body: { results: [shared], total_pages: 1 } },
+    { match: '/api/tmdb/movie/top_rated',     body: { results: [shared], total_pages: 1 } },
+    { match: '/api/tmdb/movie/now_playing',   body: { results: [shared], total_pages: 1 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items } = await client.fetchMixed(1, 'movie');
+  assert.strictEqual(items.length, 1);
+});
+
+test('fetchMixed with filter=movie fetches only the 3 movie sources', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/tmdb/trending/movie/week', body: { results: [], total_pages: 1 } },
+    { match: '/api/tmdb/movie/top_rated',     body: { results: [], total_pages: 1 } },
+    { match: '/api/tmdb/movie/now_playing',   body: { results: [], total_pages: 1 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  await client.fetchMixed(1, 'movie');
+  assert.strictEqual(fetchImpl.calls.length, 3);
+  assert.ok(fetchImpl.calls.every((url) => !url.includes('/tv/')));
+});
+
+test('fetchMixed ignores a failing source and returns results from the rest', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('/tv/on_the_air')) throw new Error('network error');
+    if (url.includes('/trending/tv/week')) return { ok: true, status: 200, json: async () => ({ results: [{ id: 10, name: 'Good Show', first_air_date: '2021-01-01', genre_ids: [], vote_average: 7, poster_path: '/g.jpg', backdrop_path: null, overview: '' }], total_pages: 2 }) };
+    return { ok: true, status: 200, json: async () => ({ results: [], total_pages: 1 }) };
+  };
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items } = await client.fetchMixed(1, 'tv');
+  assert.strictEqual(items.length, 1);
+  assert.strictEqual(items[0].id, 'tv-10');
+});
