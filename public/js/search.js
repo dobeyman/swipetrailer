@@ -43,6 +43,7 @@ export function createSearch({ tmdb, store, i18n, debounceMs = 300 }) {
 
   async function runSearch(query) {
     activeQuery = query;
+    renderLoading();
     try {
       const items = await tmdb.fetchSearch(query);
       if (activeQuery !== query) return;
@@ -73,10 +74,16 @@ export function createSearch({ tmdb, store, i18n, debounceMs = 300 }) {
     for (const item of items) list.appendChild(buildResultRow(item));
   }
 
+  function renderLoading() {
+    if (!overlayEl) return;
+    const list = overlayEl.querySelector('.search-overlay__results');
+    list.innerHTML = `<div class="search-overlay__empty">${escHtml(i18n.t('search.loading'))}</div>`;
+  }
+
   function renderEmpty() {
     if (!overlayEl) return;
     const list = overlayEl.querySelector('.search-overlay__results');
-    list.innerHTML = `<div class="search-overlay__empty">${i18n.t('search.no_results')}</div>`;
+    list.innerHTML = `<div class="search-overlay__empty">${escHtml(i18n.t('search.no_results'))}</div>`;
   }
 
   function buildResultRow(item) {
@@ -89,7 +96,7 @@ export function createSearch({ tmdb, store, i18n, debounceMs = 300 }) {
       </div>
       <div class="search-result-row__info">
         <div class="search-result-row__title">${escHtml(item.title)}</div>
-        <div class="search-result-row__meta">${i18n.t(`card.media_type.${item.mediaType}`)}${item.year ? ` · ${item.year}` : ''}</div>
+        <div class="search-result-row__meta">${escHtml(i18n.t(`card.media_type.${item.mediaType}`))}${item.year ? ` · ${escHtml(String(item.year))}` : ''}</div>
       </div>
     `;
     row.addEventListener('click', () => {
