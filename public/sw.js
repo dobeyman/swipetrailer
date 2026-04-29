@@ -1,4 +1,4 @@
-const VERSION = 'v12';
+const VERSION = 'v13';
 const APP_SHELL_CACHE = `trailerswipe-shell-${VERSION}`;
 const TMDB_CACHE = `trailerswipe-tmdb-${VERSION}`;
 const APP_SHELL = [
