@@ -47,7 +47,7 @@
   background-size: cover;
   background-position: center;
   z-index: 0;
-  filter: blur(22px) brightness(0.45);
+  filter: blur(12px) brightness(0.5);
 }
 .card__gradient {
   position: absolute;

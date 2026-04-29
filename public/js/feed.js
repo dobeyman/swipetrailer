@@ -108,9 +108,14 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   async function attachPlayerIfReady(item, el) {
     if (!item.trailerKey) return;
     if (players.has(item.id) || pendingMounts.has(item.id)) return;
-    const target = el.querySelector('.card__video');
-    if (!target) return;
+    const videoEl = el.querySelector('.card__video');
+    if (!videoEl) return;
     pendingMounts.add(item.id);
+    // Mount into a child div, not .card__video itself. YT.Player *replaces* its
+    // target element, which would destroy .card__video's aspect-ratio flex-child
+    // styles and cause the iframe to fill the full card height (black bars).
+    const target = document.createElement('div');
+    videoEl.appendChild(target);
     const cover = el.querySelector('.card__video-cover');
     try {
       const player = await mountPlayer(target, item.trailerKey, {
