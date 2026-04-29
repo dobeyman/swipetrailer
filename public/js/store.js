@@ -15,6 +15,8 @@ export function reducer(state, action) {
       return { ...state, feed: [...action.items] };
     case 'APPEND_FEED':
       return { ...state, feed: [...state.feed, ...action.items] };
+    case 'PREPEND_FEED':
+      return { ...state, feed: [...action.items, ...state.feed] };
     case 'ENRICH_ITEM': {
       const feed = state.feed.map((i) =>
         i.id === action.id ? { ...i, ...action.patch } : i

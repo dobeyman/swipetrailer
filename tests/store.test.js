@@ -93,3 +93,11 @@ test('createStore hydrates from storage', () => {
   assert.strictEqual(s.watchlist.length, 1);
   assert.strictEqual(s.preferences.filter, 'tv');
 });
+
+test('PREPEND_FEED prepends items to existing feed', () => {
+  const s1 = reducer(initialState, { type: 'SET_FEED', items: [{ id: 'movie-2' }] });
+  const s2 = reducer(s1, { type: 'PREPEND_FEED', items: [{ id: 'movie-1' }] });
+  assert.strictEqual(s2.feed.length, 2);
+  assert.strictEqual(s2.feed[0].id, 'movie-1');
+  assert.strictEqual(s2.feed[1].id, 'movie-2');
+});
