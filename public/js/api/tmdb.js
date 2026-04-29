@@ -78,5 +78,17 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
     return candidates[0]?.key || null;
   }
 
-  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates };
+  async function fetchSearch(query) {
+    const url = `${TMDB_PROXY}/search/multi?query=${encodeURIComponent(query)}&language=fr-FR&page=1`;
+    const res = await fetchImpl(url);
+    if (!res.ok) throw new Error(`TMDB search failed: ${res.status}`);
+    const json = await res.json();
+    return (json.results || [])
+      .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
+      .filter((r) => r.poster_path)
+      .slice(0, 8)
+      .map((r) => normalizeTmdbItem(r, r.media_type));
+  }
+
+  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch };
 }
