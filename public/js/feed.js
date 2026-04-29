@@ -363,6 +363,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       return;
     }
     const enriched = await enrichItems([rawItem]);
+    // enrichItems filters out items with no trailerKey; fall back to raw shape in that case.
     const item = enriched[0] ?? {
       ...rawItem,
       trailerKey: null,
