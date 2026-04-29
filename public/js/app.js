@@ -9,6 +9,7 @@ import {
 } from './api/seerr.js';
 import { createFeed } from './feed.js';
 import { createSettings } from './settings.js';
+import { createSearch } from './search.js';
 import { toast } from './toast.js';
 
 const appEl = document.getElementById('app');
@@ -40,6 +41,12 @@ async function main() {
   const seerrEnabled = health.seerr;
 
   // Top-right buttons
+  const searchBtn = document.createElement('button');
+  searchBtn.className = 'search-btn';
+  searchBtn.setAttribute('aria-label', i18n.t('search.placeholder'));
+  searchBtn.innerHTML = '🔍';
+  document.body.appendChild(searchBtn);
+
   const settingsBtn = document.createElement('button');
   settingsBtn.className = 'settings-btn';
   settingsBtn.setAttribute('aria-label', 'Settings');
@@ -83,6 +90,14 @@ async function main() {
       feed.reset();
       feed.init();
     },
+  });
+
+  // Search
+  const search = createSearch({ tmdb, store, i18n });
+  searchBtn.addEventListener('click', () => search.open());
+
+  document.addEventListener('search:select', (e) => {
+    feed.prependItem(e.detail);
   });
 
   settingsBtn.addEventListener('click', () => settings.toggle());
@@ -185,6 +200,10 @@ async function main() {
         }
         break;
       }
+      case '/':
+        e.preventDefault();
+        search.open();
+        break;
       case 's':
       case 'S':
         settings.toggle();
