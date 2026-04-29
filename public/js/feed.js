@@ -3,6 +3,12 @@ import { mountPlayer, unmountPlayer, play, pause, setMuted } from './youtube.js'
 import { toast } from './toast.js';
 
 const WINDOW_RADIUS = 2; // keep [i-2, i-1, i, i+1, i+2] in DOM
+const LOAD_AHEAD = 8;    // start fetching next page when this many cards remain
+
+export function shouldLoadMore(currentIdx, feedLength, isLoading) {
+  if (isLoading) return false;
+  return currentIdx >= feedLength - LOAD_AHEAD;
+}
 
 export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seerrEnabled }) {
   const feedEl = document.createElement('div');
@@ -171,8 +177,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
 
   async function loadMoreIfNeeded(currentIdx) {
     const feed = store.getState().feed;
-    if (currentIdx < feed.length - 3) return;
-    if (isLoadingPage) return;
+    if (!shouldLoadMore(currentIdx, feed.length, isLoadingPage)) return;
     isLoadingPage = true;
     try {
       const filter = store.getState().preferences.filter;
