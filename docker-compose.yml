@@ -17,9 +17,9 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_network"
       - "traefik.http.routers.trailerswipe.entrypoints=web,websecure"
-      - "traefik.http.routers.trailerswipe.rule=Host(`swipe.az.jen.re`)"
+      - "traefik.http.routers.trailerswipe.rule=Host(`${TRAILERSWIPE_HOST}`)"
       - "traefik.http.routers.trailerswipe.tls=true"
-      - "traefik.http.routers.trailerswipe.tls.certresolver=leresolver"
+      - "traefik.http.routers.trailerswipe.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
       - "traefik.http.services.trailerswipe.loadbalancer.server.port=3000"
 
 networks:
