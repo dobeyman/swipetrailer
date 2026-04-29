@@ -67,11 +67,11 @@ if (deduped.length) store.dispatch({ type: 'APPEND_FEED', items: deduped });
 
 | File | Change |
 |------|--------|
-| `server.js` | 4 new proxy routes |
 | `public/js/api/tmdb.js` | Add `fetchMixed`, keep `fetchTrending` (used in existing tests) |
 | `public/js/feed.js` | Use `fetchMixed`, fetch pages [1,2] at init, dedup on append |
 | `tests/api-tmdb.test.js` | 4 new tests for `fetchMixed` |
-| `tests/feed.test.js` | Update mock to expose `fetchMixed` instead of `fetchTrending` |
+
+Note: `server.js` does not need new routes — the existing wildcard `app.get('/api/tmdb/*', ...)` already proxies all TMDB paths. `tests/feed.test.js` does not need updating — the feed tests mock only `fetchTrailerKey`/`fetchReleaseDates` and never call `init()` or `loadMoreIfNeeded()`.
 
 ## Tests for fetchMixed
 
