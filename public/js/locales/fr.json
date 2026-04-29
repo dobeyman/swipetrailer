@@ -58,5 +58,12 @@
   "settings.install_unsupported": "Ton navigateur ne supporte pas l'installation",
   "settings.close": "Fermer",
 
-  "shortcut.help": "Raccourcis : Espace=play/pause, ↑↓=navigate, M=mute, R=demander, S=settings"
+  "shortcut.help": "Raccourcis : Espace=play/pause, ↑↓=navigate, /=recherche, R=demander, S=settings",
+
+  "search.placeholder": "Film, série…",
+  "search.close": "Fermer la recherche",
+  "search.trending": "En ce moment",
+  "search.results": "Résultats",
+  "search.no_results": "Aucun résultat",
+  "search.loading": "Chargement…"
 }
