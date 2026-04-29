@@ -355,5 +355,29 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo };
+  async function prependItem(rawItem) {
+    const feed = store.getState().feed;
+    const existingIdx = feed.findIndex((i) => i.id === rawItem.id);
+    if (existingIdx >= 0) {
+      scrollTo(existingIdx);
+      return;
+    }
+    const enriched = await enrichItems([rawItem]);
+    const item = enriched[0] ?? {
+      ...rawItem,
+      trailerKey: null,
+      seerrStatus: null,
+      releaseDates: null,
+      firstAirDate: null,
+      lastAirDate: null,
+      nextEpisodeToAir: null,
+      seasons: null,
+    };
+    store.dispatch({ type: 'PREPEND_FEED', items: [item] });
+    store.dispatch({ type: 'SET_INDEX', index: 0 });
+    updateWindow(0);
+    scrollTo(0);
+  }
+
+  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem };
 }
