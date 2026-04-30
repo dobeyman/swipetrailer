@@ -5,6 +5,15 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 export function createApp() {
   const app = express();
 
+  app.disable('x-powered-by');
+
+  app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
+
   app.use(express.static('public', {
     maxAge: '1h',
     etag: true,
@@ -23,6 +32,13 @@ export function createApp() {
     });
   });
 
+  // Only the three endpoints the client actually needs — everything else is blocked.
+  const SEERR_ALLOWED = [
+    { method: 'POST', pattern: /^api\/v1\/request$/ },
+    { method: 'GET',  pattern: /^api\/v1\/movie\/\d+$/ },
+    { method: 'GET',  pattern: /^api\/v1\/tv\/\d+$/ },
+  ];
+
   app.use('/api/seerr', express.raw({ type: '*/*', limit: '256kb' }));
   app.all('/api/seerr/*', async (req, res) => {
     if (!process.env.SEERR_URL || !process.env.SEERR_API_KEY) {
@@ -34,6 +50,12 @@ export function createApp() {
       seerrPath = req.url.replace(/^\/api\/seerr\//, '');
       if (seerrPath.includes('..') || seerrPath.startsWith('/') || seerrPath.includes('@')) {
         return res.status(400).json({ error: 'invalid_path' });
+      }
+      const allowed = SEERR_ALLOWED.some(
+        (r) => r.method === req.method && r.pattern.test(seerrPath)
+      );
+      if (!allowed) {
+        return res.status(403).json({ error: 'forbidden' });
       }
       const base = new URL(process.env.SEERR_URL.replace(/\/$/, '') + '/');
       const url = new URL(seerrPath, base);

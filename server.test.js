@@ -95,6 +95,34 @@ test('POST /api/seerr/api/v1/request forwards to SEERR_URL with X-Api-Key', asyn
   assert.match(capturedBody.toString(), /"mediaType":"movie"/);
 });
 
+test('GET /api/seerr/* returns 403 for endpoints not in allowlist', async () => {
+  process.env.SEERR_URL = 'http://overseerr.test';
+  process.env.SEERR_API_KEY = 'fake-seerr-key';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+  // Admin endpoints must be blocked
+  const blocked = await Promise.all([
+    originalFetch(`${baseUrl}/api/seerr/api/v1/settings/main`),
+    originalFetch(`${baseUrl}/api/seerr/api/v1/user`),
+    originalFetch(`${baseUrl}/api/seerr/api/v1/auth/me`),
+  ]);
+  for (const r of blocked) assert.strictEqual(r.status, 403);
+
+  // Allowed endpoints must pass through (will 502 since overseerr.test is not real)
+  const allowed = await Promise.all([
+    originalFetch(`${baseUrl}/api/seerr/api/v1/movie/123`),
+    originalFetch(`${baseUrl}/api/seerr/api/v1/tv/456`),
+  ]);
+  for (const r of allowed) assert.notStrictEqual(r.status, 403);
+});
+
 test('GET /api/seerr/* returns 503 when SEERR_URL or SEERR_API_KEY is missing', async () => {
   process.env.SEERR_URL = '';
   process.env.SEERR_API_KEY = '';
