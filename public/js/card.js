@@ -48,7 +48,7 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, isLoggedIn = tr
       <div class="card__action-bar">
         ${showWantButton ? `
           <button class="card__btn card__btn-want ${isRequested ? 'is-requested' : ''}" ${isRequested ? 'disabled' : ''} aria-label="${i18n.t('card.want')}">
-            <span class="card__btn-icon">${isRequested ? '✅' : '❤️'}</span>
+            <span class="card__btn-icon">${isRequested ? '✅' : ''}</span>
             <span class="card__btn-label">${i18n.t(isRequested ? 'card.requested' : 'card.want')}</span>
           </button>
         ` : ''}

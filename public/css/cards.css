@@ -218,6 +218,7 @@
   cursor: default;
 }
 .card__btn-want.is-pulsing { animation: pulse 200ms ease-out; }
+.card__btn-want:not(.is-requested) .card__btn-icon { display: none; }
 
 .card__btn-watchlist.is-active {
   background: rgba(245, 166, 35, 0.22);
