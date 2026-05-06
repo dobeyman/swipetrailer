@@ -1,4 +1,4 @@
-const VERSION = 'v13';
+const VERSION = 'v14';
 const APP_SHELL_CACHE = `trailerswipe-shell-${VERSION}`;
 const TMDB_CACHE = `trailerswipe-tmdb-${VERSION}`;
 const APP_SHELL = [
@@ -12,6 +12,7 @@ const APP_SHELL = [
   '/css/cards.css',
   '/css/settings.css',
   '/css/search.css',
+  '/css/auth.css',
   '/js/app.js',
   '/js/feed.js',
   '/js/card.js',
@@ -24,6 +25,7 @@ const APP_SHELL = [
   '/js/locales/fr.json',
   '/js/api/tmdb.js',
   '/js/api/seerr.js',
+  '/js/auth.js',
   '/icons/icon-192.svg',
   '/icons/icon-512.svg',
 ];
