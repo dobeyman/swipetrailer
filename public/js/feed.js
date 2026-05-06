@@ -10,7 +10,7 @@ export function shouldLoadMore(currentIdx, feedLength, isLoading) {
   return currentIdx >= feedLength - LOAD_AHEAD;
 }
 
-export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seerrEnabled }) {
+export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seerrEnabled, getIsLoggedIn = () => true }) {
   const feedEl = document.createElement('div');
   feedEl.className = 'feed';
   container.replaceChildren(feedEl);
@@ -170,6 +170,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       i18n,
       genreMap,
       seerrEnabled,
+      isLoggedIn: getIsLoggedIn(),
       requestedIds: store.getState().requestedIds,
       watchlistIds: store.getState().watchlistIds,
     });
@@ -233,31 +234,59 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     return shuffle(enriched.filter((i) => i.trailerKey));
   }
 
+  function appendDeduped(enriched) {
+    const existingIds = new Set(store.getState().feed.map((i) => i.id));
+    const deduped = enriched.filter((i) => !existingIds.has(i.id));
+    if (deduped.length) {
+      store.dispatch({ type: 'APPEND_FEED', items: deduped });
+      updateWindow(store.getState().currentIndex);
+    }
+  }
+
   async function init() {
     isLoadingPage = true;
     try {
       const filter = store.getState().preferences.filter;
+
+      // Fetch metadata for pages 1+2 in parallel (fast — no trailer lookup yet).
       const results = await Promise.all(
         [1, 2].map((p) => tmdb.fetchMixed(p, filter).catch(() => null))
       );
       const allItems = results.flatMap((r) => r?.items ?? []);
+      const tp = Math.max(...results.filter(Boolean).map((r) => r.totalPages));
+      totalPages = tp;
+      currentPage = 2;
+
+      // Deduplicate
       const seen = new Set();
       const unique = allItems.filter((item) => {
         if (seen.has(item.id)) return false;
         seen.add(item.id);
         return true;
       });
-      const tp = Math.max(...results.filter(Boolean).map((r) => r.totalPages));
-      const enriched = await enrichItems(unique);
-      currentPage = 2;
-      totalPages = tp;
-      store.dispatch({ type: 'SET_FEED', items: enriched });
-      if (enriched.length === 0) {
+
+      // Pick 10 random items to enrich first for variety between sessions.
+      const EAGER = 10;
+      const shuffled = shuffle([...unique]);
+      const eager = shuffled.slice(0, EAGER);
+      const lazy = shuffled.slice(EAGER);
+
+      const firstEnriched = await enrichItems(eager);
+
+      if (firstEnriched.length === 0) {
         showEmptyState();
         return;
       }
+
+      store.dispatch({ type: 'SET_FEED', items: firstEnriched });
       updateWindow(0);
       showStartGate();
+      isLoadingPage = false;
+
+      // Background: enrich the rest
+      enrichItems(lazy)
+        .then(appendDeduped)
+        .catch((e) => console.error('feed: background loading failed', e));
     } catch (e) {
       console.error('feed: init failed', e);
       showErrorState();

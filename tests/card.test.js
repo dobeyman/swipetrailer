@@ -104,3 +104,46 @@ test('createCard emits card:request event on want button click', () => {
   el.querySelector('.card__btn-want').click();
   assert.strictEqual(received.id, 'movie-100');
 });
+
+test('createCard shows login button when seerrEnabled and not logged in', () => {
+  const i18n = makeI18nStub();
+  const el = createCard({
+    item: { ...sampleItem, seerrStatus: null },
+    i18n,
+    genreMap: new Map(),
+    seerrEnabled: true,
+    isLoggedIn: false,
+  });
+  assert.ok(el.querySelector('.card__btn-login'), 'login button should be present');
+  assert.ok(!el.querySelector('.card__btn-want'), 'want button should be absent');
+});
+
+test('createCard shows want button when seerrEnabled and logged in', () => {
+  const i18n = makeI18nStub();
+  const el = createCard({
+    item: { ...sampleItem, seerrStatus: null },
+    i18n,
+    genreMap: new Map(),
+    seerrEnabled: true,
+    isLoggedIn: true,
+  });
+  assert.ok(el.querySelector('.card__btn-want'), 'want button should be present');
+  assert.ok(!el.querySelector('.card__btn-login'), 'login button should be absent');
+});
+
+test('createCard login button dispatches card:login-request', () => {
+  const i18n = makeI18nStub();
+  const el = createCard({
+    item: { ...sampleItem, seerrStatus: null },
+    i18n,
+    genreMap: new Map(),
+    seerrEnabled: true,
+    isLoggedIn: false,
+  });
+  document.body.appendChild(el);
+  let fired = false;
+  document.body.addEventListener('card:login-request', () => { fired = true; });
+  el.querySelector('.card__btn-login').click();
+  assert.ok(fired);
+  document.body.removeChild(el);
+});

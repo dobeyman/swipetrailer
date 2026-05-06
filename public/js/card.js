@@ -1,4 +1,4 @@
-export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = new Set(), watchlistIds = new Set() }) {
+export function createCard({ item, i18n, genreMap, seerrEnabled, isLoggedIn = true, requestedIds = new Set(), watchlistIds = new Set() }) {
   const el = document.createElement('article');
   el.className = 'card';
   el.dataset.itemId = item.id;
@@ -9,7 +9,8 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
   const isAvailable = item.seerrStatus !== null && item.seerrStatus >= 5;
   const isPartial = item.seerrStatus === 4;
   const isProcessing = item.seerrStatus === 2 || item.seerrStatus === 3;
-  const showWantButton = seerrEnabled && !isAvailable;
+  const showWantButton = seerrEnabled && isLoggedIn && !isAvailable;
+  const showLoginButton = seerrEnabled && !isLoggedIn && !isAvailable;
 
   const genreNames = (item.genreIds || [])
     .map((id) => genreMap.get(`${item.mediaType}:${id}`))
@@ -51,6 +52,12 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
             <span class="card__btn-label">${i18n.t(isRequested ? 'card.requested' : 'card.want')}</span>
           </button>
         ` : ''}
+        ${showLoginButton ? `
+          <button class="card__btn card__btn-login" aria-label="${i18n.t('auth.login_to_request')}">
+            <span class="card__btn-icon">🔑</span>
+            <span class="card__btn-label">${i18n.t('auth.login_to_request')}</span>
+          </button>
+        ` : ''}
         <button class="card__btn card__btn-watchlist ${isInWatchlist ? 'is-active' : ''}" aria-label="${i18n.t(isInWatchlist ? 'card.watchlist_remove' : 'card.watchlist_add')}">
           <span class="card__btn-icon">🔖</span>
         </button>
@@ -84,6 +91,9 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, requestedIds = 
     const synopsis = el.querySelector('.card__synopsis');
     const expanded = synopsis.dataset.expanded === 'true';
     synopsis.dataset.expanded = String(!expanded);
+  });
+  el.querySelector('.card__btn-login')?.addEventListener('click', () => {
+    el.dispatchEvent(new CustomEvent('card:login-request', { bubbles: true }));
   });
 
   return el;
