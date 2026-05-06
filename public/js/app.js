@@ -11,6 +11,12 @@ import { createFeed } from './feed.js';
 import { createSettings } from './settings.js';
 import { createSearch } from './search.js';
 import { toast } from './toast.js';
+import {
+  checkSession,
+  clearSession,
+  getSession,
+  startPlexLogin,
+} from './auth.js';
 
 const appEl = document.getElementById('app');
 
@@ -31,13 +37,16 @@ async function main() {
   }
   store.dispatch({ type: 'SET_HEALTH', health });
 
+  const authSession = await checkSession();
+  let currentUser = authSession?.user ?? null;
+
   if (!health.tmdb) {
     renderTmdbErrorScreen(i18n);
     return;
   }
 
   const tmdb = createTmdbClient();
-  const seerr = createSeerrClient({ enabled: health.seerr });
+  const seerr = createSeerrClient({ enabled: health.seerr, getSession });
   const seerrEnabled = health.seerr;
 
   // Top-right buttons
@@ -52,6 +61,77 @@ async function main() {
   settingsBtn.setAttribute('aria-label', 'Settings');
   settingsBtn.innerHTML = '⚙️';
   document.body.appendChild(settingsBtn);
+
+  const authBtn = document.createElement('button');
+  authBtn.className = 'auth-btn';
+  document.body.appendChild(authBtn);
+
+  function safeText(s) {
+    const d = document.createElement('div');
+    d.textContent = String(s ?? '');
+    return d.innerHTML;
+  }
+
+  function renderAuthButton(user) {
+    currentUser = user;
+    authBtn.innerHTML = '';
+    if (!user) {
+      authBtn.className = 'auth-btn';
+      authBtn.textContent = i18n.t('auth.login');
+      authBtn.onclick = handleLogin;
+    } else {
+      authBtn.className = 'auth-btn auth-btn--user';
+      const icon = user.avatar
+        ? `<img class="auth-btn__avatar" src="${safeText(user.avatar)}" alt="" />`
+        : `<span class="auth-btn__initials">${safeText(user.name[0])}</span>`;
+      authBtn.innerHTML = `${icon}<span class="auth-btn__name">${safeText(user.name)}</span>`;
+      authBtn.title = user.name;
+      authBtn.onclick = () => showLogoutPanel(user);
+    }
+  }
+
+  function showLogoutPanel(user) {
+    const existing = document.querySelector('.logout-panel');
+    if (existing) { existing.remove(); return; }
+    const panel = document.createElement('div');
+    panel.className = 'logout-panel';
+    panel.innerHTML = `
+      <div class="logout-panel__name">${safeText(user.name)}</div>
+      <button class="logout-panel__btn">${safeText(i18n.t('auth.logout'))}</button>
+    `;
+    panel.querySelector('.logout-panel__btn').addEventListener('click', () => {
+      clearSession();
+      panel.remove();
+      renderAuthButton(null);
+      feed.reset();
+      feed.init();
+      toast(i18n.t('auth.logout_success'), { variant: 'success' });
+    });
+    document.body.appendChild(panel);
+    setTimeout(() => {
+      document.addEventListener('click', (e) => {
+        if (!panel.contains(e.target) && e.target !== authBtn) panel.remove();
+      }, { once: true });
+    }, 0);
+  }
+
+  async function handleLogin() {
+    try {
+      const user = await startPlexLogin();
+      renderAuthButton(user);
+      toast(i18n.t('auth.login_success', { name: user.name }), { variant: 'success' });
+      feed.reset();
+      feed.init();
+    } catch (err) {
+      if (err.message === 'auth_timeout') {
+        toast(i18n.t('auth.login_timeout'), { variant: 'error' });
+      } else {
+        toast(i18n.t('auth.login_error'), { variant: 'error' });
+      }
+    }
+  }
+
+  renderAuthButton(currentUser);
 
   // Read-only banner if Seerr disabled
   if (!seerrEnabled) {
@@ -78,6 +158,7 @@ async function main() {
     i18n,
     genreMap,
     seerrEnabled,
+    getIsLoggedIn: () => currentUser !== null,
   });
   feed.init();
 
@@ -131,7 +212,9 @@ async function main() {
           btn.querySelector('.card__btn-label').textContent = i18n.t('card.already_requested');
         }
       } else if (err instanceof UnauthorizedError) {
-        toast(i18n.t('toast.seerr_auth_error'), { variant: 'error' });
+        clearSession();
+        renderAuthButton(null);
+        toast(i18n.t('auth.session_expired'), { variant: 'error' });
         if (btn) btn.disabled = false;
       } else if (err instanceof NotConfiguredError) {
         toast(i18n.t('feed.read_only_banner'), { variant: 'warning' });
@@ -153,6 +236,10 @@ async function main() {
       const isActive = store.getState().watchlistIds.has(e.detail.id);
       btn.classList.toggle('is-active', isActive);
     }
+  });
+
+  appEl.addEventListener('card:login-request', () => {
+    handleLogin();
   });
 
   appEl.addEventListener('card:show-dates', (e) => {
