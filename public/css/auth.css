@@ -1,6 +1,6 @@
 .auth-btn {
   position: fixed;
-  top: 1rem;
+  top: calc(1rem + var(--safe-top, 0px));
   left: 1rem;
   z-index: 100;
   background: rgba(0, 0, 0, 0.6);
@@ -49,7 +49,7 @@
 
 .logout-panel {
   position: fixed;
-  top: 3.5rem;
+  top: calc(3.5rem + var(--safe-top, 0px));
   left: 1rem;
   z-index: 200;
   background: rgba(18, 18, 18, 0.96);

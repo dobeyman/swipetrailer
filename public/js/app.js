@@ -72,6 +72,10 @@ async function main() {
     return d.innerHTML;
   }
 
+  function isSafeUrl(url) {
+    try { return new URL(url).protocol === 'https:'; } catch { return false; }
+  }
+
   function renderAuthButton(user) {
     currentUser = user;
     authBtn.innerHTML = '';
@@ -80,12 +84,12 @@ async function main() {
       authBtn.textContent = i18n.t('auth.login');
       authBtn.onclick = handleLogin;
     } else {
-      authBtn.className = 'auth-btn auth-btn--user';
-      const icon = user.avatar
+      authBtn.className = 'auth-btn';
+      const icon = user.avatar && isSafeUrl(user.avatar)
         ? `<img class="auth-btn__avatar" src="${safeText(user.avatar)}" alt="" />`
-        : `<span class="auth-btn__initials">${safeText(user.name[0])}</span>`;
+        : `<span class="auth-btn__initials">${safeText((user.name?.[0] ?? '?').toUpperCase())}</span>`;
       authBtn.innerHTML = `${icon}<span class="auth-btn__name">${safeText(user.name)}</span>`;
-      authBtn.title = user.name;
+      authBtn.title = user.name ?? '';
       authBtn.onclick = () => showLogoutPanel(user);
     }
   }
@@ -115,7 +119,10 @@ async function main() {
     }, 0);
   }
 
+  let loginInProgress = false;
   async function handleLogin() {
+    if (loginInProgress) return;
+    loginInProgress = true;
     try {
       const user = await startPlexLogin();
       renderAuthButton(user);
@@ -128,6 +135,8 @@ async function main() {
       } else {
         toast(i18n.t('auth.login_error'), { variant: 'error' });
       }
+    } finally {
+      loginInProgress = false;
     }
   }
 
