@@ -112,3 +112,25 @@ test('fetchMediaDetails returns null when disabled', async () => {
   const out = await client.fetchMediaDetails('movie', 100);
   assert.strictEqual(out, null);
 });
+
+test('requestMedia includes X-Seerr-Session when getSession returns a session', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/seerr/api/v1/request', status: 201, body: { id: 9 } },
+  ]);
+  const client = createSeerrClient({
+    fetch: fetchImpl,
+    enabled: true,
+    getSession: () => ({ session: 'user-session-abc', user: { name: 'Bob' } }),
+  });
+  await client.requestMedia({ mediaType: 'movie', mediaId: 42 });
+  assert.strictEqual(fetchImpl.calls[0].opts.headers['X-Seerr-Session'], 'user-session-abc');
+});
+
+test('requestMedia sends no X-Seerr-Session when getSession returns null', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/seerr/api/v1/request', status: 201, body: { id: 10 } },
+  ]);
+  const client = createSeerrClient({ fetch: fetchImpl, enabled: true, getSession: () => null });
+  await client.requestMedia({ mediaType: 'movie', mediaId: 42 });
+  assert.ok(!fetchImpl.calls[0].opts?.headers?.['X-Seerr-Session']);
+});

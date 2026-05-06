@@ -13,13 +13,20 @@ export class NotConfiguredError extends Error {
   constructor() { super('seerr_not_configured'); this.name = 'NotConfiguredError'; }
 }
 
-export function createSeerrClient({ fetch: fetchImpl = globalThis.fetch, enabled = false } = {}) {
+export function createSeerrClient({ fetch: fetchImpl = globalThis.fetch, enabled = false, getSession = () => null } = {}) {
+  function sessionHeader() {
+    const s = getSession();
+    return s ? { 'X-Seerr-Session': s.session } : {};
+  }
+
   async function requestMedia({ mediaType, mediaId, seasons }) {
     if (!enabled) throw new NotConfiguredError();
     let resolvedSeasons = seasons;
     if (mediaType === 'tv' && !resolvedSeasons?.length) {
       try {
-        const r = await fetchImpl(`${SEERR_PROXY}/tv/${mediaId}`);
+        const r = await fetchImpl(`${SEERR_PROXY}/tv/${mediaId}`, {
+          headers: { ...sessionHeader() },
+        });
         if (r.ok) {
           const d = await r.json();
           resolvedSeasons = d?.seasons?.map((s) => s.seasonNumber).filter((n) => n > 0) ?? null;
@@ -32,7 +39,7 @@ export function createSeerrClient({ fetch: fetchImpl = globalThis.fetch, enabled
     try {
       res = await fetchImpl(`${SEERR_PROXY}/request`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...sessionHeader() },
         body: JSON.stringify(body),
       });
     } catch {
@@ -48,7 +55,9 @@ export function createSeerrClient({ fetch: fetchImpl = globalThis.fetch, enabled
     if (!enabled) return null;
     let res;
     try {
-      res = await fetchImpl(`${SEERR_PROXY}/${mediaType}/${tmdbId}`);
+      res = await fetchImpl(`${SEERR_PROXY}/${mediaType}/${tmdbId}`, {
+        headers: { ...sessionHeader() },
+      });
     } catch {
       return null;
     }
