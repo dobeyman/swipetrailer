@@ -127,8 +127,7 @@ async function main() {
       const user = await startPlexLogin();
       renderAuthButton(user);
       toast(i18n.t('auth.login_success', { name: user.name }), { variant: 'success' });
-      feed.reset();
-      feed.init();
+      feed.refreshCardAuth();
     } catch (err) {
       if (err.message === 'auth_timeout') {
         toast(i18n.t('auth.login_timeout'), { variant: 'error' });

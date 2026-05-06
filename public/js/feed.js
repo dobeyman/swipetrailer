@@ -411,5 +411,36 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     scrollTo(0);
   }
 
-  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem };
+  function refreshCardAuth() {
+    for (const [id, el] of cardEls) {
+      const loginBtn = el.querySelector('.card__btn-login');
+      if (!loginBtn) continue;
+
+      const item = store.getState().feed.find((i) => i.id === id);
+      if (!item) continue;
+
+      const isAvailable = item.seerrStatus !== null && item.seerrStatus >= 5;
+      if (isAvailable) {
+        loginBtn.remove();
+        continue;
+      }
+
+      const isRequested = store.getState().requestedIds.has(item.id);
+      const wantBtn = document.createElement('button');
+      wantBtn.className = `card__btn card__btn-want${isRequested ? ' is-requested' : ''}`;
+      if (isRequested) wantBtn.disabled = true;
+      wantBtn.setAttribute('aria-label', i18n.t('card.want'));
+      wantBtn.innerHTML = `<span class="card__btn-icon">${isRequested ? '✅' : ''}</span>`
+        + `<span class="card__btn-label">${i18n.t(isRequested ? 'card.requested' : 'card.want')}</span>`;
+      wantBtn.addEventListener('click', () => {
+        el.dispatchEvent(new CustomEvent('card:request', {
+          detail: { id: item.id, mediaType: item.mediaType, tmdbId: item.tmdbId, title: item.title, seasons: item.seasons },
+          bubbles: true,
+        }));
+      });
+      loginBtn.replaceWith(wantBtn);
+    }
+  }
+
+  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem, refreshCardAuth };
 }

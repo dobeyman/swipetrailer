@@ -53,7 +53,7 @@ export async function startPlexLogin() {
   if (!res.ok) throw new Error('pin_request_failed');
   const { pinId, authUrl } = await res.json();
 
-  const popup = window.open(authUrl, '_blank', 'noopener');
+  const popup = window.open(authUrl, '_blank');
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;
@@ -74,6 +74,7 @@ export async function startPlexLogin() {
         const data = await r.json();
         if (data.pending) return;
         clearInterval(timer);
+        if (popup && !popup.closed) popup.close();
         if (data.error) { reject(new Error(data.error)); return; }
         saveSession(data.session, data.user);
         resolve(data.user);

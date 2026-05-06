@@ -109,6 +109,34 @@ test('prependItem: dispatches PREPEND_FEED and SET_INDEX for new item', async ()
   assert.strictEqual(setIndex.index, 0);
 });
 
+test('refreshCardAuth: replaces login button with want button when auth state changes', async () => {
+  const container = makeContainer();
+  const store = makeMockStore([]);
+  let isLoggedIn = false;
+  const feed = createFeed({
+    container,
+    store,
+    tmdb: makeMockTmdb(null), // null trailer key → enrichItems falls back to raw shape
+    seerr: { fetchMediaDetails: async () => null },
+    i18n: { t: (k) => k },
+    genreMap: new Map(),
+    seerrEnabled: true,
+    getIsLoggedIn: () => isLoggedIn,
+  });
+
+  const rawItem = { id: 'auth-refresh-1', tmdbId: 99, mediaType: 'movie', title: 'AuthTest', year: 2024, genreIds: [], rating: 8, posterPath: null, backdropPath: null, trailerKey: null, seerrStatus: null, releaseDates: null, overview: '' };
+  await feed.prependItem(rawItem);
+
+  assert.ok(container.querySelector('.card__btn-login'), 'login button should exist before refreshCardAuth');
+  assert.ok(!container.querySelector('.card__btn-want'), 'want button should not exist before refreshCardAuth');
+
+  isLoggedIn = true;
+  feed.refreshCardAuth();
+
+  assert.ok(!container.querySelector('.card__btn-login'), 'login button should be removed after refreshCardAuth');
+  assert.ok(container.querySelector('.card__btn-want'), 'want button should appear after refreshCardAuth');
+});
+
 test('prependItem: inserts item even when enrichItems finds no trailer', async () => {
   const store = makeMockStore([]);
   const feed = createFeed({
