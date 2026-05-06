@@ -20,6 +20,7 @@ export function getSession() {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
+    if (!parsed.session || !parsed.user) return null;
     return { session: parsed.session, user: parsed.user };
   } catch {
     return null;
@@ -52,7 +53,7 @@ export async function startPlexLogin() {
   if (!res.ok) throw new Error('pin_request_failed');
   const { pinId, authUrl } = await res.json();
 
-  window.open(authUrl, '_blank', 'noopener');
+  const popup = window.open(authUrl, '_blank', 'noopener');
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;
@@ -63,6 +64,7 @@ export async function startPlexLogin() {
       elapsed += INTERVAL;
       if (elapsed > MAX) {
         clearInterval(timer);
+        if (popup && !popup.closed) popup.close();
         reject(new Error('auth_timeout'));
         return;
       }
