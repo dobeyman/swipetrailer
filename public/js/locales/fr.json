@@ -42,6 +42,15 @@
   "toast.seerr_auth_error": "Erreur d'authentification (contacter l'admin)",
   "toast.available_already": "Déjà dans ta médiathèque",
 
+  "auth.login": "Se connecter avec Plex",
+  "auth.logout": "Se déconnecter",
+  "auth.login_to_request": "Se connecter pour demander",
+  "auth.login_success": "Bienvenue {name} !",
+  "auth.login_timeout": "Connexion expirée, réessaie",
+  "auth.login_error": "Connexion impossible",
+  "auth.logout_success": "Déconnecté",
+  "auth.session_expired": "Session expirée, reconnecte-toi",
+
   "settings.title": "Paramètres",
   "settings.filter": "Type de contenu",
   "settings.filter.all": "Tous",
