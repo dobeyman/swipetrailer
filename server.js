@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
@@ -30,6 +31,90 @@ export function createApp() {
       seerr: Boolean(process.env.SEERR_URL && process.env.SEERR_API_KEY),
       seerrType: process.env.SEERR_TYPE || 'overseerr',
     });
+  });
+
+  const PLEX_API = 'https://plex.tv/api/v2';
+  const plexClientId = process.env.PLEX_CLIENT_ID || (() => {
+    const id = randomUUID();
+    console.log(JSON.stringify({ level: 'info', msg: `PLEX_CLIENT_ID not set — using ${id}. Add to .env to persist.` }));
+    return id;
+  })();
+  const plexHeaders = {
+    'X-Plex-Client-Identifier': plexClientId,
+    'X-Plex-Product': 'TrailerSwipe',
+    Accept: 'application/json',
+  };
+
+  app.post('/api/auth/plex/pin', async (req, res) => {
+    try {
+      const r = await fetch(`${PLEX_API}/pins?strong=true`, {
+        method: 'POST',
+        headers: plexHeaders,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!r.ok) return res.status(502).json({ error: 'plex_pin_failed' });
+      const { id: pinId, code } = await r.json();
+      const authUrl =
+        `https://app.plex.tv/auth#?clientID=${encodeURIComponent(plexClientId)}` +
+        `&code=${encodeURIComponent(code)}` +
+        `&context%5Bdevice%5D%5Bproduct%5D=TrailerSwipe`;
+      res.json({ pinId, authUrl });
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', src: 'plex-pin', msg: err.message }));
+      res.status(502).json({ error: 'plex_unreachable' });
+    }
+  });
+
+  app.get('/api/auth/plex/callback', async (req, res) => {
+    const { pinId } = req.query;
+    if (!pinId || !/^\d+$/.test(String(pinId))) {
+      return res.status(400).json({ error: 'invalid_pin_id' });
+    }
+    if (!process.env.SEERR_URL || !process.env.SEERR_API_KEY) {
+      return res.status(503).json({ error: 'seerr_not_configured' });
+    }
+    try {
+      const pinRes = await fetch(`${PLEX_API}/pins/${pinId}`, {
+        headers: plexHeaders,
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!pinRes.ok) return res.status(502).json({ error: 'plex_pin_check_failed' });
+      const pin = await pinRes.json();
+      if (!pin.authToken) return res.json({ pending: true });
+
+      const seerrBase = process.env.SEERR_URL.replace(/\/$/, '');
+
+      const authRes = await fetch(`${seerrBase}/api/v1/auth/plex`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ authToken: pin.authToken }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!authRes.ok) return res.status(502).json({ error: 'seerr_auth_failed' });
+
+      const setCookie = authRes.headers.get('set-cookie') || '';
+      const match = setCookie.match(/connect\.sid=([^;]+)/);
+      if (!match) return res.status(502).json({ error: 'seerr_no_session' });
+      const session = match[1];
+
+      const meRes = await fetch(`${seerrBase}/api/v1/auth/me`, {
+        headers: { Cookie: `connect.sid=${session}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!meRes.ok) return res.status(502).json({ error: 'seerr_me_failed' });
+      const me = await meRes.json();
+
+      res.json({
+        session,
+        user: {
+          name: me.displayName || me.username || me.email || 'Utilisateur',
+          avatar: me.avatar || null,
+        },
+      });
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', src: 'plex-callback', msg: err.message }));
+      res.status(502).json({ error: 'auth_failed' });
+    }
   });
 
   // Only the three endpoints the client actually needs — everything else is blocked.

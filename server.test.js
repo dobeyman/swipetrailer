@@ -175,3 +175,99 @@ test('GET /api/health when TMDB missing', async () => {
   const json = await res.json();
   assert.deepStrictEqual(json, { tmdb: false, seerr: false, seerrType: 'overseerr' });
 });
+
+test('POST /api/auth/plex/pin returns pinId and authUrl', async () => {
+  process.env.PLEX_CLIENT_ID = 'test-client-id';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+
+  global.fetch = async (url, opts) => {
+    assert.match(url, /plex\.tv\/api\/v2\/pins/);
+    assert.strictEqual(opts.headers['X-Plex-Client-Identifier'], 'test-client-id');
+    return new Response(JSON.stringify({ id: 42, code: 'ABCD1234' }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await originalFetch(`${baseUrl}/api/auth/plex/pin`, { method: 'POST' });
+  assert.strictEqual(res.status, 200);
+  const body = await res.json();
+  assert.strictEqual(body.pinId, 42);
+  assert.match(body.authUrl, /app\.plex\.tv\/auth/);
+  assert.match(body.authUrl, /ABCD1234/);
+  assert.match(body.authUrl, /test-client-id/);
+});
+
+test('GET /api/auth/plex/callback returns pending when authToken is null', async () => {
+  process.env.SEERR_URL = 'http://overseerr.test';
+  process.env.SEERR_API_KEY = 'fake-key';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+
+  global.fetch = async (url) => {
+    assert.match(url, /plex\.tv\/api\/v2\/pins\/123/);
+    return new Response(JSON.stringify({ id: 123, code: 'X', authToken: null }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await originalFetch(`${baseUrl}/api/auth/plex/callback?pinId=123`);
+  assert.strictEqual(res.status, 200);
+  const body = await res.json();
+  assert.strictEqual(body.pending, true);
+});
+
+test('GET /api/auth/plex/callback returns session and user when auth complete', async () => {
+  let callCount = 0;
+  global.fetch = async (url) => {
+    callCount++;
+    if (url.includes('plex.tv')) {
+      return new Response(JSON.stringify({ id: 123, authToken: 'plex-token-xyz' }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/auth/plex')) {
+      return new Response(JSON.stringify({ id: 1, displayName: 'Alice' }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'set-cookie': 'connect.sid=s%3Aabc123; Path=/; HttpOnly',
+        },
+      });
+    }
+    if (url.includes('/auth/me')) {
+      return new Response(JSON.stringify({ id: 1, displayName: 'Alice', avatar: null }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  const res = await originalFetch(`${baseUrl}/api/auth/plex/callback?pinId=123`);
+  assert.strictEqual(res.status, 200);
+  const body = await res.json();
+  assert.strictEqual(body.session, 's%3Aabc123');
+  assert.strictEqual(body.user.name, 'Alice');
+  assert.strictEqual(callCount, 3);
+});
+
+test('GET /api/auth/plex/callback returns 400 for non-numeric pinId', async () => {
+  const res = await originalFetch(`${baseUrl}/api/auth/plex/callback?pinId=../evil`);
+  assert.strictEqual(res.status, 400);
+});
