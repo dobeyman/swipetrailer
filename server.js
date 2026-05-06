@@ -117,11 +117,12 @@ export function createApp() {
     }
   });
 
-  // Only the three endpoints the client actually needs — everything else is blocked.
+  // Only the endpoints the client actually needs — everything else is blocked.
   const SEERR_ALLOWED = [
     { method: 'POST', pattern: /^api\/v1\/request$/ },
     { method: 'GET',  pattern: /^api\/v1\/movie\/\d+$/ },
     { method: 'GET',  pattern: /^api\/v1\/tv\/\d+$/ },
+    { method: 'GET',  pattern: /^api\/v1\/auth\/me$/ },
   ];
 
   app.use('/api/seerr', express.raw({ type: '*/*', limit: '256kb' }));
@@ -147,10 +148,15 @@ export function createApp() {
       if (url.origin !== base.origin) {
         return res.status(400).json({ error: 'invalid_path' });
       }
+      const rawSession = req.headers['x-seerr-session'];
+      const validSession = rawSession && /^[\w%.-]{10,300}$/.test(rawSession) ? rawSession : null;
+      const authHeader = validSession
+        ? { Cookie: `connect.sid=${validSession}` }
+        : { 'X-Api-Key': process.env.SEERR_API_KEY };
       const fetchOpts = {
         method: req.method,
         headers: {
-          'X-Api-Key': process.env.SEERR_API_KEY,
+          ...authHeader,
           'Content-Type': req.headers['content-type'] || 'application/json',
           'Accept-Language': 'fr-FR',
         },

@@ -111,7 +111,6 @@ test('GET /api/seerr/* returns 403 for endpoints not in allowlist', async () => 
   const blocked = await Promise.all([
     originalFetch(`${baseUrl}/api/seerr/api/v1/settings/main`),
     originalFetch(`${baseUrl}/api/seerr/api/v1/user`),
-    originalFetch(`${baseUrl}/api/seerr/api/v1/auth/me`),
   ]);
   for (const r of blocked) assert.strictEqual(r.status, 403);
 
@@ -270,4 +269,67 @@ test('GET /api/auth/plex/callback returns session and user when auth complete', 
 test('GET /api/auth/plex/callback returns 400 for non-numeric pinId', async () => {
   const res = await originalFetch(`${baseUrl}/api/auth/plex/callback?pinId=../evil`);
   assert.strictEqual(res.status, 400);
+});
+
+test('Seerr proxy uses Cookie header when X-Seerr-Session is present', async () => {
+  process.env.SEERR_URL = 'http://overseerr.test';
+  process.env.SEERR_API_KEY = 'admin-key';
+  await new Promise((resolve) => server.close(resolve));
+  app = createApp();
+  await new Promise((resolve) => {
+    server = app.listen(0, () => {
+      const { port } = server.address();
+      baseUrl = `http://127.0.0.1:${port}`;
+      resolve();
+    });
+  });
+
+  let capturedHeaders;
+  global.fetch = async (url, opts) => {
+    capturedHeaders = opts.headers;
+    return new Response(JSON.stringify({ id: 1 }), {
+      status: 201, headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await originalFetch(`${baseUrl}/api/seerr/api/v1/request`, {
+    method: 'POST',
+    headers: {
+      'X-Seerr-Session': 's%3Avalidsession12345',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ mediaType: 'movie', mediaId: 1 }),
+  });
+  assert.strictEqual(res.status, 201);
+  assert.strictEqual(capturedHeaders['Cookie'], 'connect.sid=s%3Avalidsession12345');
+  assert.ok(!capturedHeaders['X-Api-Key'], 'admin key must not be sent when session present');
+});
+
+test('Seerr proxy uses X-Api-Key when no session header', async () => {
+  let capturedHeaders;
+  global.fetch = async (url, opts) => {
+    capturedHeaders = opts.headers;
+    return new Response(JSON.stringify({ id: 2 }), {
+      status: 201, headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await originalFetch(`${baseUrl}/api/seerr/api/v1/request`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mediaType: 'movie', mediaId: 1 }),
+  });
+  assert.strictEqual(res.status, 201);
+  assert.strictEqual(capturedHeaders['X-Api-Key'], 'admin-key');
+  assert.ok(!capturedHeaders['Cookie']);
+});
+
+test('GET /api/seerr/api/v1/auth/me is allowed', async () => {
+  global.fetch = async () => new Response(JSON.stringify({ id: 1, displayName: 'Alice' }), {
+    status: 200, headers: { 'content-type': 'application/json' },
+  });
+  const res = await originalFetch(`${baseUrl}/api/seerr/api/v1/auth/me`, {
+    headers: { 'X-Seerr-Session': 's%3Avalidsession12345' },
+  });
+  assert.strictEqual(res.status, 200);
 });
