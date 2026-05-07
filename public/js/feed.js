@@ -417,10 +417,9 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   }
 
   async function resetFeed() {
+    reset();
     store.dispatch({ type: 'SET_FEED', items: [] });
-    currentPage = 1;
-    totalPages = 1;
-    isLoadingPage = false;
+    store.dispatch({ type: 'SET_INDEX', index: 0 });
     await loadMoreIfNeeded(0);
   }
 
