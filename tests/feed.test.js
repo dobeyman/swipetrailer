@@ -156,3 +156,29 @@ test('prependItem: inserts item even when enrichItems finds no trailer', async (
   assert.ok(prepend, 'PREPEND_FEED should be dispatched even without trailer');
   assert.strictEqual(prepend.items[0].trailerKey, null);
 });
+
+test('resetFeed clears the feed and triggers a reload', async () => {
+  const store = makeMockStore([{ id: 'movie-1', mediaType: 'movie', title: 'Old' }]);
+  const tmdb = makeMockTmdb('KEY1');
+  tmdb.fetchMixed = async () => ({ items: [{ id: 'movie-2', mediaType: 'movie', title: 'New', genreIds: [], rating: 7, year: 2024, posterPath: '/p.jpg', backdropPath: null, overview: '' }], totalPages: 1 });
+  tmdb.fetchDiscover = async () => ({ items: [], totalPages: 1 });
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const feed = createFeed({ container, store, tmdb, seerr: null, i18n: { t: (k) => k }, genreMap: new Map(), seerrEnabled: false });
+  await feed.resetFeed();
+  const setFeedAction = store._dispatched.find((a) => a.type === 'SET_FEED' && a.items.length === 0);
+  assert.ok(setFeedAction, 'resetFeed should dispatch SET_FEED with empty items');
+});
+
+test('resetFeed triggers a fetch after clearing', async () => {
+  const store = makeMockStore([]);
+  let fetchCalled = false;
+  const tmdb = makeMockTmdb('KEY2');
+  tmdb.fetchMixed = async () => { fetchCalled = true; return { items: [], totalPages: 1 }; };
+  tmdb.fetchDiscover = async () => { fetchCalled = true; return { items: [], totalPages: 1 }; };
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const feed = createFeed({ container, store, tmdb, seerr: null, i18n: { t: (k) => k }, genreMap: new Map(), seerrEnabled: false });
+  await feed.resetFeed();
+  assert.ok(fetchCalled, 'resetFeed should trigger a fetch (fetchMixed or fetchDiscover)');
+});
