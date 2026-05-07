@@ -48,18 +48,38 @@ export async function checkSession() {
   }
 }
 
+// Called on startup when the page loaded because of the forwardUrl redirect.
+// Notifies the original PWA tab via BroadcastChannel, then closes this tab.
+export function handlePlexAuthReturn() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('plex_auth') !== '1') return;
+  history.replaceState({}, '', location.pathname);
+  try { new BroadcastChannel('plex-auth').postMessage('return'); } catch { /* unsupported */ }
+  // Close this tab — works when it was opened via window.open()
+  try { window.close(); } catch { /* browser blocked it, user closes manually */ }
+}
+
 export async function startPlexLogin() {
   const res = await fetch('/api/auth/plex/pin', { method: 'POST' });
   if (!res.ok) throw new Error('pin_request_failed');
   const { pinId, authUrl } = await res.json();
 
-  const popup = window.open(authUrl, '_blank');
+  const returnUrl = `${window.location.origin}/?plex_auth=1`;
+  const authUrlWithReturn = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
+  const popup = window.open(authUrlWithReturn, '_blank');
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;
     let settled = false;
     const INTERVAL = 2000;
     const MAX = 5 * 60 * 1000;
+
+    // BroadcastChannel: instant wakeup when the return tab fires
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('plex-auth');
+      bc.onmessage = () => checkPin();
+    } catch { /* unsupported — fallback to polling */ }
 
     async function checkPin() {
       if (settled) return;
@@ -78,16 +98,18 @@ export async function startPlexLogin() {
       } catch { /* network hiccup */ }
     }
 
-    function onReturn() {
+    function onVisibility() {
       if (!document.hidden) checkPin();
     }
 
     function cleanup() {
-      document.removeEventListener('visibilitychange', onReturn);
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', checkPin);
+      if (bc) { bc.close(); bc = null; }
     }
 
-    document.addEventListener('visibilitychange', onReturn);
+    // Also fire on tab focus — belt-and-suspenders fallback
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', checkPin);
 
     const timer = setInterval(async () => {

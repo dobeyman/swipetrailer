@@ -17,11 +17,15 @@ import {
   clearSession,
   getSession,
   startPlexLogin,
+  handlePlexAuthReturn,
 } from './auth.js';
 
 const appEl = document.getElementById('app');
 
 async function main() {
+  // If this tab was opened by the Plex forwardUrl redirect, signal the PWA tab and close.
+  handlePlexAuthReturn();
+
   const i18n = createI18n();
   await i18n.loadLocale('fr');
 
