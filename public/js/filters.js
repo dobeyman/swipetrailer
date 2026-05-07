@@ -34,11 +34,14 @@ export function createFilters({ container, store, tmdb, i18n, onFiltersChange })
   }
 
   function open() {
-    loadGenres().then(() => render());
+    loadGenres().then(() => render()).catch(() => {
+      genreList = [];
+      render();
+    });
   }
 
   function render() {
-    const existing = document.querySelector('.filters-overlay');
+    const existing = container.querySelector('.filters-overlay');
     if (existing) existing.remove();
 
     const { genres: activeGenres, languages: activeLangs } = store.getState().preferences;
@@ -67,7 +70,7 @@ export function createFilters({ container, store, tmdb, i18n, onFiltersChange })
             <div class="filters-chips" data-group="genres">
               ${genreList.map((g) => `
                 <button class="filters-chip ${activeGenres.includes(g.id) ? 'is-selected' : ''}"
-                        data-id="${g.id}" data-name="${escapeHtml(g.name)}">
+                        data-id="${g.id}">
                   ${escapeHtml(g.name)}
                 </button>
               `).join('')}
@@ -135,7 +138,7 @@ export function createFilters({ container, store, tmdb, i18n, onFiltersChange })
   }
 
   function close() {
-    const overlay = document.querySelector('.filters-overlay');
+    const overlay = container.querySelector('.filters-overlay');
     if (overlay) overlay.remove();
   }
 
