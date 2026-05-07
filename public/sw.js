@@ -1,4 +1,4 @@
-const VERSION = 'v14';
+const VERSION = 'v20';
 const APP_SHELL_CACHE = `trailerswipe-shell-${VERSION}`;
 const TMDB_CACHE = `trailerswipe-tmdb-${VERSION}`;
 const APP_SHELL = [
@@ -13,12 +13,14 @@ const APP_SHELL = [
   '/css/settings.css',
   '/css/search.css',
   '/css/auth.css',
+  '/css/filters.css',
   '/js/app.js',
   '/js/feed.js',
   '/js/card.js',
   '/js/youtube.js',
   '/js/settings.js',
   '/js/search.js',
+  '/js/filters.js',
   '/js/toast.js',
   '/js/i18n.js',
   '/js/store.js',
@@ -26,8 +28,8 @@ const APP_SHELL = [
   '/js/api/tmdb.js',
   '/js/api/seerr.js',
   '/js/auth.js',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
