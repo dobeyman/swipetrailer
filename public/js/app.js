@@ -23,8 +23,9 @@ import {
 const appEl = document.getElementById('app');
 
 async function main() {
-  // If this tab was opened by the Plex forwardUrl redirect, signal the PWA tab and close.
-  handlePlexAuthReturn();
+  // Returning from Plex forwardUrl redirect — poll for token, save session.
+  // Must run before checkSession() so the freshly saved session is found.
+  const plexReturn = await handlePlexAuthReturn();
 
   const i18n = createI18n();
   await i18n.loadLocale('fr');
@@ -43,7 +44,7 @@ async function main() {
   store.dispatch({ type: 'SET_HEALTH', health });
 
   const authSession = await checkSession();
-  let currentUser = authSession?.user ?? null;
+  let currentUser = plexReturn?.user ?? authSession?.user ?? null;
 
   if (!health.tmdb) {
     renderTmdbErrorScreen(i18n);
@@ -140,21 +141,15 @@ async function main() {
   }
 
   let loginInProgress = false;
-  async function handleLogin() {
+  async function handleLogin(cardId = null) {
     if (loginInProgress) return;
     loginInProgress = true;
     try {
-      const user = await startPlexLogin();
-      renderAuthButton(user);
-      toast(i18n.t('auth.login_success', { name: user.name }), { variant: 'success' });
-      feed.refreshCardAuth();
+      // startPlexLogin navigates the current tab away — the promise never resolves.
+      // Auth completion is handled by handlePlexAuthReturn() on the next page load.
+      await startPlexLogin({ cardId });
     } catch (err) {
-      if (err.message === 'auth_timeout') {
-        toast(i18n.t('auth.login_timeout'), { variant: 'error' });
-      } else {
-        toast(i18n.t('auth.login_error'), { variant: 'error' });
-      }
-    } finally {
+      toast(i18n.t('auth.login_error'), { variant: 'error' });
       loginInProgress = false;
     }
   }
@@ -189,6 +184,14 @@ async function main() {
     getIsLoggedIn: () => currentUser !== null,
   });
   feed.init();
+
+  // Plex auth return: show success toast and skip the start gate
+  if (plexReturn?.user) {
+    renderAuthButton(plexReturn.user);
+    toast(i18n.t('auth.login_success', { name: plexReturn.user.name }), { variant: 'success' });
+    feed.skipStartGate();
+    feed.refreshCardAuth();
+  }
 
   // Filters
   const filters = createFilters({
@@ -282,8 +285,8 @@ async function main() {
     }
   });
 
-  appEl.addEventListener('card:login-request', () => {
-    handleLogin();
+  appEl.addEventListener('card:login-request', (e) => {
+    handleLogin(e.detail?.itemId ?? null);
   });
 
   appEl.addEventListener('card:show-dates', (e) => {

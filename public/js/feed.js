@@ -465,5 +465,10 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     }
   }
 
-  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem, refreshCardAuth, resetFeed };
+  function skipStartGate() {
+    hasStarted = true;
+    document.querySelector('.start-gate')?.remove();
+  }
+
+  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem, refreshCardAuth, resetFeed, skipStartGate };
 }

@@ -93,7 +93,7 @@ export function createCard({ item, i18n, genreMap, seerrEnabled, isLoggedIn = tr
     synopsis.dataset.expanded = String(!expanded);
   });
   el.querySelector('.card__btn-login')?.addEventListener('click', () => {
-    el.dispatchEvent(new CustomEvent('card:login-request', { bubbles: true }));
+    el.dispatchEvent(new CustomEvent('card:login-request', { bubbles: true, detail: { itemId: item.id } }));
   });
 
   return el;

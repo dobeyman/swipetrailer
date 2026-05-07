@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'ts.auth';
+const PENDING_KEY = 'ts.plex-pending';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function saveSession(session, user) {
@@ -48,104 +49,55 @@ export async function checkSession() {
   }
 }
 
-// Called on startup when the page loaded because of the forwardUrl redirect.
-// Notifies the original PWA tab via BroadcastChannel, then closes this tab.
-export function handlePlexAuthReturn() {
-  const params = new URLSearchParams(location.search);
-  if (params.get('plex_auth') !== '1') return;
-  history.replaceState({}, '', location.pathname);
-  try { new BroadcastChannel('plex-auth').postMessage('return'); } catch { /* unsupported */ }
-  // Close this tab — works when it was opened via window.open()
-  try { window.close(); } catch { /* browser blocked it, user closes manually */ }
-}
+// Redirect the current tab to Plex auth.
+// Stores {pinId, cardId} in sessionStorage so handlePlexAuthReturn()
+// can finish the flow when the app reloads on return.
+export async function startPlexLogin({ cardId = null } = {}) {
+  const res = await fetch('/api/auth/plex/pin', { method: 'POST' });
+  if (!res.ok) throw new Error('pin_request_failed');
+  const { pinId, authUrl } = await res.json();
 
-export async function startPlexLogin() {
-  // Open a blank tab NOW, inside the user-gesture stack, before any await.
-  // If we open after await the browser loses gesture context and may
-  // navigate the current tab instead of opening a new one.
-  const popup = window.open('about:blank', '_blank');
-
-  let pinId, authUrl;
   try {
-    const res = await fetch('/api/auth/plex/pin', { method: 'POST' });
-    if (!res.ok) throw new Error('pin_request_failed');
-    ({ pinId, authUrl } = await res.json());
-  } catch (err) {
-    if (popup && !popup.closed) popup.close();
-    throw err;
-  }
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ pinId, cardId }));
+  } catch { /* ignore */ }
 
   const returnUrl = `${window.location.origin}/?plex_auth=1`;
-  const authUrlWithReturn = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
-  if (popup) {
-    popup.location.href = authUrlWithReturn;
-  } else {
-    // Popup blocked — navigate current tab (last resort)
-    window.location.href = authUrlWithReturn;
-  }
+  window.location.href = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
 
-  return new Promise((resolve, reject) => {
-    let elapsed = 0;
-    let settled = false;
-    const INTERVAL = 2000;
-    const MAX = 5 * 60 * 1000;
+  // Page navigates away — this promise never settles
+  return new Promise(() => {});
+}
 
-    let bc = null;
+// Called at app startup. If the URL has ?plex_auth=1, we're returning from
+// a Plex redirect. Poll the server until the token is committed, save the
+// session, and return {cardId} so the app can restore context.
+export async function handlePlexAuthReturn() {
+  if (new URLSearchParams(location.search).get('plex_auth') !== '1') return null;
+  history.replaceState({}, '', location.pathname);
+
+  let pinId = null, cardId = null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_KEY);
+    sessionStorage.removeItem(PENDING_KEY);
+    if (raw) ({ pinId, cardId } = JSON.parse(raw));
+  } catch { /* ignore */ }
+
+  if (!pinId) return null;
+
+  // Plex may redirect before fully committing the token — retry for up to 6s
+  for (let i = 0; i < 20; i++) {
     try {
-      bc = new BroadcastChannel('plex-auth');
-      bc.onmessage = () => {
-        // Plex may not have committed the token yet when the redirect fires.
-        // Poll at 500ms for up to 10s before falling back to the 2s interval.
-        let n = 0;
-        const fast = setInterval(async () => {
-          n++;
-          await checkPin();
-          if (n >= 20 || settled) clearInterval(fast);
-        }, 500);
-      };
-    } catch { /* unsupported — fallback to polling */ }
-
-    async function checkPin() {
-      if (settled) return;
-      try {
-        const r = await fetch(`/api/auth/plex/callback?pinId=${pinId}`);
-        if (!r.ok) return;
+      const r = await fetch(`/api/auth/plex/callback?pinId=${pinId}`);
+      if (r.ok) {
         const data = await r.json();
-        if (data.pending) return;
-        settled = true;
-        clearInterval(timer);
-        cleanup();
-        if (popup && !popup.closed) popup.close();
-        if (data.error) { reject(new Error(data.error)); return; }
-        saveSession(data.session, data.user);
-        resolve(data.user);
-      } catch { /* network hiccup */ }
-    }
-
-    function onVisibility() {
-      if (!document.hidden) checkPin();
-    }
-
-    function cleanup() {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', checkPin);
-      if (bc) { bc.close(); bc = null; }
-    }
-
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', checkPin);
-
-    const timer = setInterval(async () => {
-      elapsed += INTERVAL;
-      if (elapsed > MAX) {
-        settled = true;
-        clearInterval(timer);
-        cleanup();
-        if (popup && !popup.closed) popup.close();
-        reject(new Error('auth_timeout'));
-        return;
+        if (!data.pending && !data.error) {
+          saveSession(data.session, data.user);
+          return { user: data.user, cardId };
+        }
+        if (data.error) break;
       }
-      await checkPin();
-    }, INTERVAL);
-  });
+    } catch { /* network hiccup */ }
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  return null;
 }
