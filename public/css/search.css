@@ -148,7 +148,7 @@
 .search-btn {
   position: fixed;
   top: calc(var(--space-md) + var(--safe-top));
-  right: calc(var(--space-md) + 44px); /* 44px = settings btn width + gap */
+  left: var(--space-md);
   z-index: 50;
   width: 36px;
   height: 36px;
