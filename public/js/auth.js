@@ -60,13 +60,29 @@ export function handlePlexAuthReturn() {
 }
 
 export async function startPlexLogin() {
-  const res = await fetch('/api/auth/plex/pin', { method: 'POST' });
-  if (!res.ok) throw new Error('pin_request_failed');
-  const { pinId, authUrl } = await res.json();
+  // Open a blank tab NOW, inside the user-gesture stack, before any await.
+  // If we open after await the browser loses gesture context and may
+  // navigate the current tab instead of opening a new one.
+  const popup = window.open('about:blank', '_blank');
+
+  let pinId, authUrl;
+  try {
+    const res = await fetch('/api/auth/plex/pin', { method: 'POST' });
+    if (!res.ok) throw new Error('pin_request_failed');
+    ({ pinId, authUrl } = await res.json());
+  } catch (err) {
+    if (popup && !popup.closed) popup.close();
+    throw err;
+  }
 
   const returnUrl = `${window.location.origin}/?plex_auth=1`;
   const authUrlWithReturn = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
-  const popup = window.open(authUrlWithReturn, '_blank');
+  if (popup) {
+    popup.location.href = authUrlWithReturn;
+  } else {
+    // Popup blocked — navigate current tab (last resort)
+    window.location.href = authUrlWithReturn;
+  }
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;
@@ -74,11 +90,19 @@ export async function startPlexLogin() {
     const INTERVAL = 2000;
     const MAX = 5 * 60 * 1000;
 
-    // BroadcastChannel: instant wakeup when the return tab fires
     let bc = null;
     try {
       bc = new BroadcastChannel('plex-auth');
-      bc.onmessage = () => checkPin();
+      bc.onmessage = () => {
+        // Plex may not have committed the token yet when the redirect fires.
+        // Poll at 500ms for up to 10s before falling back to the 2s interval.
+        let n = 0;
+        const fast = setInterval(async () => {
+          n++;
+          await checkPin();
+          if (n >= 20 || settled) clearInterval(fast);
+        }, 500);
+      };
     } catch { /* unsupported — fallback to polling */ }
 
     async function checkPin() {
@@ -108,7 +132,6 @@ export async function startPlexLogin() {
       if (bc) { bc.close(); bc = null; }
     }
 
-    // Also fire on tab focus — belt-and-suspenders fallback
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', checkPin);
 
