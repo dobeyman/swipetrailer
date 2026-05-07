@@ -35,6 +35,7 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
       title,
       overview: raw.overview || '',
       genreIds: raw.genre_ids || [],
+      originalLanguage: raw.original_language || null,
       rating: raw.vote_average || 0,
       year,
       posterPath: raw.poster_path,
@@ -133,5 +134,42 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
       .map((r) => normalizeTmdbItem(r, r.media_type));
   }
 
-  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch, fetchMixed };
+  async function fetchDiscoverEndpoint(endpoint, mediaType, page, genreIds, language) {
+    const params = new URLSearchParams({ page, language: 'fr-FR' });
+    if (genreIds.length > 0) params.set('with_genres', genreIds.join('|'));
+    if (language) params.set('with_original_language', language);
+    const url = `${TMDB_PROXY}/${endpoint}?${params}`;
+    const res = await fetchImpl(url);
+    if (!res.ok) throw new Error(`TMDB discover failed: ${res.status}`);
+    const json = await res.json();
+    const items = (json.results || []).map((r) => normalizeTmdbItem(r, mediaType));
+    return { items, totalPages: json.total_pages || 1 };
+  }
+
+  async function fetchDiscover(page, filter, genreIds, languages) {
+    const langs = languages.length > 0 ? languages : [null];
+    const endpoints = [];
+    if (filter !== 'tv')  endpoints.push({ path: 'discover/movie', mediaType: 'movie' });
+    if (filter !== 'movie') endpoints.push({ path: 'discover/tv', mediaType: 'tv' });
+
+    const requests = endpoints.flatMap(({ path, mediaType }) =>
+      langs.map((lang) => fetchDiscoverEndpoint(path, mediaType, page, genreIds, lang))
+    );
+
+    const results = await Promise.allSettled(requests);
+    const fulfilled = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+    if (fulfilled.length === 0) throw new Error('All TMDB discover sources failed');
+
+    const seen = new Set();
+    const items = [];
+    for (const result of fulfilled) {
+      for (const item of result.items) {
+        if (!seen.has(item.id)) { seen.add(item.id); items.push(item); }
+      }
+    }
+    const totalPages = Math.max(...fulfilled.map((r) => r.totalPages));
+    return { items, totalPages };
+  }
+
+  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch, fetchMixed, fetchDiscover };
 }

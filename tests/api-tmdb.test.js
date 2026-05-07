@@ -268,3 +268,79 @@ test('fetchMixed ignores a failing source and returns results from the rest', as
   assert.strictEqual(items.length, 1);
   assert.strictEqual(items[0].id, 'tv-10');
 });
+
+test('normalizeTmdbItem captures originalLanguage', async () => {
+  const fetchImpl = makeFetch([
+    {
+      match: '/api/tmdb/trending/all/week',
+      body: {
+        results: [
+          { id: 1, media_type: 'movie', title: 'Intouchables', release_date: '2011-09-28',
+            genre_ids: [18], vote_average: 8.1, poster_path: '/p.jpg', backdrop_path: '/b.jpg',
+            overview: 'Synopsis', original_language: 'fr' },
+        ],
+        total_pages: 1,
+      },
+    },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items } = await client.fetchTrending(1, 'all');
+  assert.strictEqual(items[0].originalLanguage, 'fr');
+});
+
+test('fetchDiscover builds correct movie discover URL with genre and language', async () => {
+  const fetchImpl = makeFetch([
+    {
+      match: '/api/tmdb/discover/movie',
+      body: { results: [
+        { id: 42, media_type: 'movie', title: 'Film', release_date: '2023-01-01',
+          genre_ids: [28], vote_average: 7.5, poster_path: '/p.jpg', backdrop_path: null,
+          overview: '', original_language: 'fr' }
+      ], total_pages: 3 },
+    },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items, totalPages } = await client.fetchDiscover(1, 'movie', [28], ['fr']);
+  assert.strictEqual(items.length, 1);
+  assert.strictEqual(items[0].id, 'movie-42');
+  assert.strictEqual(totalPages, 3);
+  assert.ok(fetchImpl.calls[0].includes('/discover/movie'));
+  assert.ok(fetchImpl.calls[0].includes('with_genres=28'));
+  assert.ok(fetchImpl.calls[0].includes('with_original_language=fr'));
+});
+
+test('fetchDiscover with filter=tv calls only discover/tv', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/tmdb/discover/tv', body: { results: [], total_pages: 1 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  await client.fetchDiscover(1, 'tv', [], []);
+  assert.ok(fetchImpl.calls[0].includes('/discover/tv'));
+  assert.strictEqual(fetchImpl.calls.length, 1);
+});
+
+test('fetchDiscover with filter=all calls both movie and tv discover', async () => {
+  const fetchImpl = makeFetch([
+    { match: '/api/tmdb/discover/movie', body: { results: [], total_pages: 2 } },
+    { match: '/api/tmdb/discover/tv',    body: { results: [], total_pages: 4 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { totalPages } = await client.fetchDiscover(1, 'all', [], []);
+  assert.strictEqual(fetchImpl.calls.length, 2);
+  assert.strictEqual(totalPages, 4); // max
+});
+
+test('fetchDiscover with multiple languages makes one request per language and deduplicates', async () => {
+  const fetchImpl = makeFetch([
+    { match: 'with_original_language=fr', body: { results: [
+      { id: 1, media_type: 'movie', title: 'A', release_date: '2023-01-01', genre_ids: [], vote_average: 7, poster_path: '/a.jpg', backdrop_path: null, overview: '', original_language: 'fr' },
+    ], total_pages: 1 } },
+    { match: 'with_original_language=ko', body: { results: [
+      { id: 1, media_type: 'movie', title: 'A', release_date: '2023-01-01', genre_ids: [], vote_average: 7, poster_path: '/a.jpg', backdrop_path: null, overview: '', original_language: 'fr' },
+      { id: 2, media_type: 'movie', title: 'B', release_date: '2023-01-01', genre_ids: [], vote_average: 8, poster_path: '/b.jpg', backdrop_path: null, overview: '', original_language: 'ko' },
+    ], total_pages: 1 } },
+  ]);
+  const client = createTmdbClient({ fetch: fetchImpl });
+  const { items } = await client.fetchDiscover(1, 'movie', [], ['fr', 'ko']);
+  assert.strictEqual(items.length, 2); // item id:1 deduplicated
+});
