@@ -101,3 +101,33 @@ test('PREPEND_FEED prepends items to existing feed', () => {
   assert.strictEqual(s2.feed[0].id, 'movie-1');
   assert.strictEqual(s2.feed[1].id, 'movie-2');
 });
+
+test('SET_GENRE_FILTERS updates preferences.genres', () => {
+  const next = reducer(initialState, { type: 'SET_GENRE_FILTERS', genres: [28, 18] });
+  assert.deepStrictEqual(next.preferences.genres, [28, 18]);
+});
+
+test('SET_LANGUAGE_FILTERS updates preferences.languages', () => {
+  const next = reducer(initialState, { type: 'SET_LANGUAGE_FILTERS', languages: ['fr', 'ko'] });
+  assert.deepStrictEqual(next.preferences.languages, ['fr', 'ko']);
+});
+
+test('preferences genres and languages persist to storage', () => {
+  const storage = new MemoryStorage();
+  const store = createStore({ storage });
+  store.dispatch({ type: 'SET_GENRE_FILTERS', genres: [28] });
+  store.dispatch({ type: 'SET_LANGUAGE_FILTERS', languages: ['fr'] });
+  const prefs = JSON.parse(storage.getItem('ts.preferences'));
+  assert.deepStrictEqual(prefs.genres, [28]);
+  assert.deepStrictEqual(prefs.languages, ['fr']);
+});
+
+test('createStore hydrates genres and languages from storage', () => {
+  const storage = new MemoryStorage();
+  storage.setItem('ts.preferences', JSON.stringify({ filter: 'all', locale: 'fr', genres: [28], languages: ['ko'] }));
+  const store = createStore({ storage });
+  store.hydrate();
+  const s = store.getState();
+  assert.deepStrictEqual(s.preferences.genres, [28]);
+  assert.deepStrictEqual(s.preferences.languages, ['ko']);
+});

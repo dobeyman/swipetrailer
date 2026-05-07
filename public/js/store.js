@@ -4,7 +4,7 @@ export const initialState = Object.freeze({
   watchlistIds: new Set(),
   watchlist: [], // [{ id, mediaType, title, posterPath }]
   currentIndex: 0,
-  preferences: { filter: 'all', locale: 'fr' },
+  preferences: { filter: 'all', locale: 'fr', genres: [], languages: [] },
   health: null, // { tmdb, seerr, seerrType }
   isMutedGlobally: false,
 });
@@ -53,6 +53,16 @@ export function reducer(state, action) {
       return {
         ...state,
         preferences: { ...state.preferences, locale: action.value },
+      };
+    case 'SET_GENRE_FILTERS':
+      return {
+        ...state,
+        preferences: { ...state.preferences, genres: action.genres },
+      };
+    case 'SET_LANGUAGE_FILTERS':
+      return {
+        ...state,
+        preferences: { ...state.preferences, languages: action.languages },
       };
     case 'SET_HEALTH':
       return { ...state, health: action.health };
