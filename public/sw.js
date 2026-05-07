@@ -1,4 +1,4 @@
-const VERSION = 'v21';
+const VERSION = 'v22';
 const APP_SHELL_CACHE = `trailerswipe-shell-${VERSION}`;
 const TMDB_CACHE = `trailerswipe-tmdb-${VERSION}`;
 const APP_SHELL = [
@@ -30,6 +30,7 @@ const APP_SHELL = [
   '/js/auth.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/images/tom-loader.gif',
 ];
 
 self.addEventListener('install', (event) => {

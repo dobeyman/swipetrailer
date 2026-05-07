@@ -15,6 +15,14 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   feedEl.className = 'feed';
   container.replaceChildren(feedEl);
 
+  const loaderEl = document.createElement('div');
+  loaderEl.className = 'feed-loader';
+  loaderEl.innerHTML = '<img src="/images/tom-loader.gif" alt="" aria-hidden="true">';
+  container.appendChild(loaderEl);
+
+  function showLoader() { loaderEl.classList.add('is-visible'); }
+  function hideLoader() { loaderEl.classList.remove('is-visible'); }
+
   const players = new Map(); // itemId -> YT.Player instance
   const pendingMounts = new Set(); // itemId currently being mounted
   const cardEls = new Map(); // itemId -> HTMLElement
@@ -188,6 +196,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     const feed = store.getState().feed;
     if (!shouldLoadMore(currentIdx, feed.length, isLoadingPage)) return;
     isLoadingPage = true;
+    showLoader();
     try {
       const nextPage = currentPage >= totalPages ? 1 : currentPage + 1;
       const { items, totalPages: tp } = await fetchPage(nextPage);
@@ -203,6 +212,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       toast(i18n.t('feed.loading_more_failed'), { variant: 'error' });
     } finally {
       isLoadingPage = false;
+      hideLoader();
     }
   }
 
@@ -361,6 +371,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     currentPage = 1;
     totalPages = 1;
     isLoadingPage = false;
+    hideLoader();
   }
 
   function setMutedAll(muted) {
