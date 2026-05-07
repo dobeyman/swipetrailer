@@ -124,20 +124,22 @@
 
 .feed-loader {
   position: fixed;
-  bottom: calc(var(--safe-bottom, 0px) + 16px);
-  left: 50%;
-  transform: translateX(-50%) translateY(140%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 50;
-  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
 .feed-loader.is-visible {
-  transform: translateX(-50%) translateY(0);
+  opacity: 1;
 }
 .feed-loader img {
-  width: 88px;
-  height: 88px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
   display: block;
 }

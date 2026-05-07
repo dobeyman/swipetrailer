@@ -196,7 +196,6 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     const feed = store.getState().feed;
     if (!shouldLoadMore(currentIdx, feed.length, isLoadingPage)) return;
     isLoadingPage = true;
-    showLoader();
     try {
       const nextPage = currentPage >= totalPages ? 1 : currentPage + 1;
       const { items, totalPages: tp } = await fetchPage(nextPage);
@@ -212,7 +211,6 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
       toast(i18n.t('feed.loading_more_failed'), { variant: 'error' });
     } finally {
       isLoadingPage = false;
-      hideLoader();
     }
   }
 
@@ -431,7 +429,9 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     reset();
     store.dispatch({ type: 'SET_FEED', items: [] });
     store.dispatch({ type: 'SET_INDEX', index: 0 });
+    showLoader();
     await loadMoreIfNeeded(0);
+    hideLoader();
   }
 
   function refreshCardAuth() {
