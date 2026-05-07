@@ -314,6 +314,7 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   }
 
   function showStartGate() {
+    if (hasStarted) return;
     if (isIOS()) {
       // iOS: muted autoplay works without user gesture — skip the gate
       hasStarted = true;
