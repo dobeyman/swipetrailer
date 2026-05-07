@@ -183,7 +183,18 @@ async function main() {
     seerrEnabled,
     getIsLoggedIn: () => currentUser !== null,
   });
-  feed.init();
+  feed.init().then(async () => {
+    if (plexReturn?.cardId) {
+      try {
+        const [mediaType, ...rest] = plexReturn.cardId.split('-');
+        const tmdbId = Number(rest.join('-'));
+        if (mediaType && tmdbId) {
+          const item = await tmdb.fetchById(mediaType, tmdbId);
+          if (item) await feed.prependItem(item);
+        }
+      } catch { /* ignore — user stays at top of feed */ }
+    }
+  });
 
   // Plex auth return: show success toast and skip the start gate
   if (plexReturn?.user) {

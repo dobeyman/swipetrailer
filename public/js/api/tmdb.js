@@ -171,5 +171,13 @@ export function createTmdbClient({ fetch: fetchImpl = globalThis.fetch } = {}) {
     return { items, totalPages };
   }
 
-  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch, fetchMixed, fetchDiscover };
+  async function fetchById(mediaType, tmdbId) {
+    const url = `${TMDB_PROXY}/${mediaType}/${tmdbId}?language=fr-FR`;
+    const res = await fetchImpl(url);
+    if (!res.ok) return null;
+    const raw = await res.json();
+    return normalizeTmdbItem(raw, mediaType);
+  }
+
+  return { loadGenres, fetchTrending, fetchTrailerKey, fetchReleaseDates, fetchSearch, fetchMixed, fetchDiscover, fetchById };
 }
