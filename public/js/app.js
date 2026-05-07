@@ -10,6 +10,7 @@ import {
 import { createFeed } from './feed.js';
 import { createSettings } from './settings.js';
 import { createSearch } from './search.js';
+import { createFilters } from './filters.js';
 import { toast } from './toast.js';
 import {
   checkSession,
@@ -61,6 +62,20 @@ async function main() {
   settingsBtn.setAttribute('aria-label', 'Settings');
   settingsBtn.innerHTML = '⚙️';
   document.body.appendChild(settingsBtn);
+
+  const filtersBtn = document.createElement('button');
+  filtersBtn.className = 'filters-btn';
+  filtersBtn.setAttribute('aria-label', 'Filtres');
+  document.body.appendChild(filtersBtn);
+
+  function updateFiltersBadge() {
+    const { genres = [], languages = [] } = store.getState().preferences;
+    const count = genres.length + languages.length;
+    filtersBtn.innerHTML = count > 0
+      ? `🎬 <span class="filters-btn__badge">${count}</span>`
+      : '🎬 Filtres';
+  }
+  updateFiltersBadge();
 
   const authBtn = document.createElement('button');
   authBtn.className = 'auth-btn';
@@ -169,6 +184,22 @@ async function main() {
     getIsLoggedIn: () => currentUser !== null,
   });
   feed.init();
+
+  // Filters
+  const filters = createFilters({
+    container: document.body,
+    store,
+    tmdb,
+    i18n,
+    onFiltersChange: () => {
+      updateFiltersBadge();
+      feed.resetFeed();
+    },
+  });
+
+  filtersBtn.addEventListener('click', () => filters.open());
+
+  store.subscribe(() => updateFiltersBadge());
 
   // Settings
   const settings = createSettings({
