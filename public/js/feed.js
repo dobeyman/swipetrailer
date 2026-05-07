@@ -176,14 +176,21 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     });
   }
 
+  function fetchPage(page) {
+    const { filter, genres = [], languages = [] } = store.getState().preferences;
+    if (genres.length > 0 || languages.length > 0) {
+      return tmdb.fetchDiscover(page, filter, genres, languages);
+    }
+    return tmdb.fetchMixed(page, filter);
+  }
+
   async function loadMoreIfNeeded(currentIdx) {
     const feed = store.getState().feed;
     if (!shouldLoadMore(currentIdx, feed.length, isLoadingPage)) return;
     isLoadingPage = true;
     try {
-      const filter = store.getState().preferences.filter;
       const nextPage = currentPage >= totalPages ? 1 : currentPage + 1;
-      const { items, totalPages: tp } = await tmdb.fetchMixed(nextPage, filter);
+      const { items, totalPages: tp } = await fetchPage(nextPage);
       const enriched = await enrichItems(items);
       const existingIds = new Set(store.getState().feed.map((i) => i.id));
       const deduped = enriched.filter((i) => !existingIds.has(i.id));
@@ -246,11 +253,9 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
   async function init() {
     isLoadingPage = true;
     try {
-      const filter = store.getState().preferences.filter;
-
       // Fetch metadata for pages 1+2 in parallel (fast — no trailer lookup yet).
       const results = await Promise.all(
-        [1, 2].map((p) => tmdb.fetchMixed(p, filter).catch(() => null))
+        [1, 2].map((p) => fetchPage(p).catch(() => null))
       );
       const allItems = results.flatMap((r) => r?.items ?? []);
       const tp = Math.max(...results.filter(Boolean).map((r) => r.totalPages));
@@ -411,6 +416,14 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     scrollTo(0);
   }
 
+  async function resetFeed() {
+    store.dispatch({ type: 'SET_FEED', items: [] });
+    currentPage = 1;
+    totalPages = Infinity;
+    isLoadingPage = false;
+    await loadMoreIfNeeded(0);
+  }
+
   function refreshCardAuth() {
     for (const [id, el] of cardEls) {
       const loginBtn = el.querySelector('.card__btn-login');
@@ -442,5 +455,5 @@ export function createFeed({ container, store, tmdb, seerr, i18n, genreMap, seer
     }
   }
 
-  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem, refreshCardAuth };
+  return { init, reset, setMutedAll, pauseAll, resumeCurrent, scrollTo, prependItem, refreshCardAuth, resetFeed };
 }
