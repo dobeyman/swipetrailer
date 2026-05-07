@@ -53,7 +53,8 @@ export async function startPlexLogin() {
   if (!res.ok) throw new Error('pin_request_failed');
   const { pinId, authUrl } = await res.json();
 
-  const popup = window.open(authUrl, '_blank');
+  const authUrlWithReturn = `${authUrl}&forwardUrl=${encodeURIComponent(window.location.origin)}`;
+  const popup = window.open(authUrlWithReturn, '_blank');
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;

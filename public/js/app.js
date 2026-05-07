@@ -50,12 +50,13 @@ async function main() {
   const seerr = createSeerrClient({ enabled: health.seerr, getSession });
   const seerrEnabled = health.seerr;
 
-  // Top-right buttons
-  const searchBtn = document.createElement('button');
-  searchBtn.className = 'search-btn';
-  searchBtn.setAttribute('aria-label', i18n.t('search.placeholder'));
-  searchBtn.innerHTML = '🔍';
-  document.body.appendChild(searchBtn);
+  // Search bar (below top icons row)
+  const searchBarEl = document.createElement('div');
+  searchBarEl.className = 'search-bar';
+  searchBarEl.setAttribute('role', 'button');
+  searchBarEl.setAttribute('aria-label', i18n.t('search.placeholder'));
+  searchBarEl.innerHTML = `<span class="search-bar__icon">🔍</span><span class="search-bar__placeholder">${i18n.t('search.placeholder')}</span>`;
+  document.body.appendChild(searchBarEl);
 
   const settingsBtn = document.createElement('button');
   settingsBtn.className = 'settings-btn';
@@ -214,7 +215,7 @@ async function main() {
 
   // Search
   const search = createSearch({ tmdb, store, i18n });
-  searchBtn.addEventListener('click', () => search.open());
+  searchBarEl.addEventListener('click', () => search.open());
 
   document.addEventListener('search:select', (e) => {
     feed.prependItem(e.detail);
