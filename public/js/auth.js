@@ -53,33 +53,54 @@ export async function startPlexLogin() {
   if (!res.ok) throw new Error('pin_request_failed');
   const { pinId, authUrl } = await res.json();
 
-  const authUrlWithReturn = `${authUrl}&forwardUrl=${encodeURIComponent(window.location.origin)}`;
-  const popup = window.open(authUrlWithReturn, '_blank');
+  const popup = window.open(authUrl, '_blank');
 
   return new Promise((resolve, reject) => {
     let elapsed = 0;
+    let settled = false;
     const INTERVAL = 2000;
     const MAX = 5 * 60 * 1000;
 
-    const timer = setInterval(async () => {
-      elapsed += INTERVAL;
-      if (elapsed > MAX) {
-        clearInterval(timer);
-        if (popup && !popup.closed) popup.close();
-        reject(new Error('auth_timeout'));
-        return;
-      }
+    async function checkPin() {
+      if (settled) return;
       try {
         const r = await fetch(`/api/auth/plex/callback?pinId=${pinId}`);
         if (!r.ok) return;
         const data = await r.json();
         if (data.pending) return;
+        settled = true;
         clearInterval(timer);
+        cleanup();
         if (popup && !popup.closed) popup.close();
         if (data.error) { reject(new Error(data.error)); return; }
         saveSession(data.session, data.user);
         resolve(data.user);
-      } catch { /* network hiccup, keep polling */ }
+      } catch { /* network hiccup */ }
+    }
+
+    function onReturn() {
+      if (!document.hidden) checkPin();
+    }
+
+    function cleanup() {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', checkPin);
+    }
+
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', checkPin);
+
+    const timer = setInterval(async () => {
+      elapsed += INTERVAL;
+      if (elapsed > MAX) {
+        settled = true;
+        clearInterval(timer);
+        cleanup();
+        if (popup && !popup.closed) popup.close();
+        reject(new Error('auth_timeout'));
+        return;
+      }
+      await checkPin();
     }, INTERVAL);
   });
 }
